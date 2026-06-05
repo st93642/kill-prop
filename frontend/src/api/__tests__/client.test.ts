@@ -151,11 +151,11 @@ describe('API client', () => {
   });
 
   describe('updateReview', () => {
-    it('calls PUT /api/events/:id/review', async () => {
+    it('calls PUT /api/review/:id/notes', async () => {
       mockFetch.mockReturnValue(mockOk({ message: 'saved', event_id: 'e1', human_reviewed: true }));
       await client.updateReview('e1', 'notes');
       expect(mockFetch).toHaveBeenCalledWith(
-        '/api/events/e1/review',
+        '/api/review/e1/notes',
         expect.objectContaining({ method: 'PUT' }),
       );
     });

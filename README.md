@@ -1,96 +1,183 @@
 # kill-prop: Source-Triangulation News Analyzer
 
-kill-prop is a news analysis system designed to identify propaganda, highlight contradictions between different source pools (Western, Russian, Chinese, Neutral), and extract verified facts using a 6-stage pipeline.
+kill-prop is a news analysis system designed to compare reporting across Western and Russian-source pools, identify overlapping verified facts, flag unsupported or emotionally loaded claims, and expose where framing diverges.
 
 ## Features
 
-- **Multi-Source Intake**: Ingests articles from Western mainstream, Russian state-aligned, Russian independent, and Chinese state-aligned sources.
-- **Auto-Translation**: Automatically translates non-English sources (e.g., TASS, RIA Novosti) into English for cross-source analysis.
-- **Claim Extraction**: Uses rule-based (MVP) or LLM-based (Production) extraction of atomic claims.
-- **Propaganda Detection**: Flags loaded language, "us-vs-them" framing, and certainty without evidence.
-- **Consensus Engine**: Groups claims into events and identifies where sources agree or disagree.
-- **Interactive Dashboard**: Visualizes facts, disputes, and source-specific framing.
+- **Multi-Source Intake**: Ingests articles from Western mainstream, Russian state-aligned, Russian independent, Chinese state-aligned, and neutral wire sources.
+- **Claim Extraction**: Rule-based extraction of atomic claims from article text.
+- **Consensus Engine**: Field-by-field resolution with an abstraction ladder ontology — contradictory claims from different pools are collapsed to their safest common abstraction.
+- **Contradiction Detection**: First-class contradiction types (event-level, field-level, framing) with a state machine for resolution.
+- **Evidence Scoring**: Multi-factor scoring (corroboration × evidence type × source reliability × specificity − framing penalty).
+- **Review Console**: Human-in-the-loop review workflow with field overrides and event approval.
+- **Interactive Dashboard**: Three-pane event view — facts agreed across sources, disputed claims, and source-bucketed framing.
 
 ## Tech Stack
 
-- **Backend**: Python 3.10+, FastAPI, Pydantic
-- **Frontend**: React, TypeScript, Vite, Tailwind CSS
-- **Storage**: In-memory with JSON persistence for MVP
+- **Backend**: Python 3.10+, FastAPI, Pydantic v2
+- **Frontend**: React 18, TypeScript, Vite, Vitest
+- **Storage**: In-memory with JSON file persistence for MVP
+- **E2E Testing**: Playwright
 
-## Getting Started
+## Quick Start
 
 ### Prerequisites
 
 - Python 3.10+
 - Node.js 18+
-- npm or yarn
+- npm
 
-### Installation
+### Using the Launcher (recommended)
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/your-repo/kill-prop.git
-   cd kill-prop
-   ```
+```bash
+# Linux / macOS
+chmod +x kill-prop.sh
+./kill-prop.sh
 
-2. **Set up the Backend**:
+# Windows
+double-click kill-prop.bat
+```
+
+The launcher automatically creates a virtual environment, installs dependencies, and starts both servers.
+
+### Manual Setup
+
+1. **Backend**:
    ```bash
    cd backend
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   python -m venv .venv
+   source .venv/bin/activate
    pip install -r requirements.txt
+   uvicorn backend.main:app --reload --port 8000
    ```
 
-3. **Set up the Frontend**:
-   ```bash
-   cd ../frontend
-   npm install
-   ```
-
-### Running the App
-
-1. **Start the Backend**:
-   ```bash
-   cd backend
-   uvicorn main:app --reload --port 8000
-   ```
-   The API will be available at `http://localhost:8000`.
-   - API Docs: `http://localhost:8000/docs`
-   - Trigger Pipeline: `curl http://localhost:8000/api/pipeline/run`
-
-2. **Start the Frontend**:
+2. **Frontend**:
    ```bash
    cd frontend
+   npm install
    npm run dev
    ```
-   The app will be available at `http://localhost:5173`.
+
+Then open **http://localhost:5173**.
 
 ## Architecture
 
 The system follows a 6-stage pipeline:
 
-1. **Source Intake**: Fetch articles from diverse ideological pools.
-2. **Article Normalization**: Convert raw data to structured canonical forms.
-3. **Event Clustering**: Group related claims into a single "event".
-4. **Claim Extraction**: Identify facts, attributions, and framing.
-5. **Evidence Scoring**: Rank claims based on source reliability and corroboration.
-6. **User Presentation**: Display facts and highlight contradictions.
+```mermaid
+flowchart LR
+    A[Source Intake] --> B[Normalization]
+    B --> C[Event Clustering]
+    C --> D[Claim Extraction]
+    D --> E[Evidence Scoring]
+    E --> F[User Presentation]
+    
+    A -->|Seed data / News APIs| A1[(Articles Store)]
+    C --> C1[(Events Store)]
+    D --> D1[(Claims Store)]
+    F --> F1[React Dashboard]
+```
 
-## Supported Sources
+### Pipeline Stages
 
-- **Western Mainstream**: Reuters, AP, BBC, NYT, Washington Post.
-- **Russian State**: TASS, RIA Novosti, RT.
-- **Russian Independent**: Meduza, Novaya Gazeta.
-- **Chinese State**: Xinhua, People's Daily, Global Times.
-- **Neutral Wire**: Swissinfo, Interfax.
+| # | Stage | Description |
+|---|-------|-------------|
+| 1 | **Source Intake** | Ingest articles from 5 ideological/geographic pools (seed data for MVP) |
+| 2 | **Normalization** | Convert surface forms to canonical values (weapon, actor, location, target) |
+| 3 | **Event Clustering** | Group related articles by time proximity, topic overlap, and text similarity |
+| 4 | **Claim Extraction** | Extract atomic claims with rule-based NLP; optional LLM fallback (TinyLlama) |
+| 5 | **Evidence Scoring** | Score claims: 35% corroboration + 25% evidence + 15% reliability + 15% specificity − 10% framing |
+| 6 | **Presentation** | Three-layer event view: facts, disputes, and source-bucketed framing |
 
-## Development
+### Key Algorithms
 
-- **Run Tests**: 
-  - Backend: `cd backend && pytest`
-  - Frontend: `cd frontend && npm test` (if configured)
-- **Adding Sources**: Update `SourcePool` in `backend/models.py` and implement a fetcher in `backend/pipeline/ingestion.py`.
+- **Field Consensus**: Resolves each event argument field independently using an abstraction ladder ontology. If pools disagree on "actor" (e.g., "russian_military" vs "ukrainian_military"), the system abstracts up to the common ancestor ("military_force") and marks the field as disputed.
+- **Contradiction State Machine**: `reported → corroborated | disputed_detail → resolved | corrected`
+- **Scoring Formula**: `score = 0.35(corroboration) + 0.25(evidence) + 0.15(reliability) + 0.15(specificity) − 0.10(framing)`
+
+## Project Structure
+
+```
+├── backend/
+│   ├── main.py              # FastAPI app entrypoint
+│   ├── models.py            # Pydantic data models & enums
+│   ├── storage.py           # JSON file persistence
+│   ├── pipeline/
+│   │   ├── ingestion.py     # Stage 1: Source intake
+│   │   ├── normalization.py # Stage 2: Claim normalization
+│   │   ├── clustering.py    # Stage 3: Event clustering
+│   │   ├── llm_extraction.py# Stage 4: LLM-based extraction
+│   │   ├── consensus.py     # Stage 5a: Field consensus engine
+│   │   ├── scoring.py       # Stage 5b: Evidence scoring
+│   │   └── llm.py           # TinyLlama provider
+│   ├── routers/
+│   │   ├── articles.py      # /api/articles routes
+│   │   ├── events.py        # /api/events routes
+│   │   └── review.py        # /api/review routes (human-in-the-loop)
+│   └── tests/               # pytest test suite
+├── frontend/
+│   ├── src/
+│   │   ├── App.tsx          # Main app with sidebar navigation
+│   │   ├── types.ts         # TypeScript type definitions
+│   │   ├── api/client.ts    # API client with typed endpoints
+│   │   └── components/      # React components
+│   └── index.html
+├── e2e/
+│   └── app.spec.ts          # Playwright E2E tests
+├── kill-prop.sh             # Linux/macOS launcher
+├── kill-prop.bat            # Windows launcher
+└── pyproject.toml           # Python project metadata & test config
+```
+
+## Supported Sources (seed data)
+
+- **Western Mainstream**: Western Herald
+- **Russian State**: Eastern Times, TASS
+- **Russian Independent**: Independent Gazette
+- **Chinese State**: Xinhua
+- **Neutral Wire**: Wire Service
+
+## API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/health` | Health check + pipeline stage list |
+| GET | `/api/pipeline/run` | Run the full 6-stage pipeline end-to-end |
+| POST | `/api/articles/ingest` | Ingest articles (seed data) |
+| GET | `/api/articles` | List all articles |
+| GET | `/api/articles/{id}` | Get article detail with normalized claims |
+| POST | `/api/events/cluster` | Cluster articles into events |
+| GET | `/api/events` | List events (with optional filters) |
+| GET | `/api/events/{id}` | Get event detail with all three layers |
+| GET | `/api/review/events` | List events for review |
+| PUT | `/api/review/{id}/notes` | Update review notes |
+| POST | `/api/review/{id}/override` | Human override of a field resolution |
+| POST | `/api/review/{id}/approve` | Mark event as reviewed |
+| POST | `/api/review/{id}/recluster` | Flag event for reclustering |
+| GET | `/api/review/dashboard` | Review dashboard stats |
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `KILLPROP_STORAGE_DIR` | `~/.killprop/data` | Path for JSON persistence files |
+| `USE_LLM` | `false` | Enable TinyLlama-based claim extraction |
+
+## Running Tests
+
+```bash
+# Backend tests
+cd backend
+python -m pytest
+
+# Frontend tests
+cd frontend
+npm test
+
+# E2E tests (both servers must be running)
+npm run test:e2e
+```
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT — see [LICENSE](LICENSE).

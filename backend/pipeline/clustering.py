@@ -14,6 +14,7 @@ from backend.models import (
     Article,
     Claim,
     Event,
+    EventContradictionState,
     SourcePool,
     articles_store,
     claims_store,
@@ -157,7 +158,7 @@ def cluster_claims_into_events() -> list[Event]:
                 if actor and actor.normalized:
                     actor_values.add(actor.normalized)
             if len(actor_values) > 1:
-                event.contradiction_state = "disputed_detail"
+                event.contradiction_state = EventContradictionState.DISPUTED_DETAIL
 
         events_store[event.event_id] = event
         events.append(event)

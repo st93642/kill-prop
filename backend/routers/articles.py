@@ -7,8 +7,6 @@ from fastapi import APIRouter, HTTPException
 from backend.models import Article, articles_store, claims_store
 from backend.pipeline.ingestion import fetch_article, ingest_articles
 from backend.pipeline.normalization import normalize_claims_batch
-from backend.storage import archive_stores
-
 router = APIRouter(prefix="/api/articles", tags=["articles"])
 
 
@@ -16,8 +14,6 @@ router = APIRouter(prefix="/api/articles", tags=["articles"])
 async def ingest(seed: bool = True):
     """Ingest articles from source pools (seed data for MVP)."""
     articles = ingest_articles(seed=seed)
-    # Persist newly ingested articles to disk
-    archive_stores()
     return {
         "message": f"Ingested {len(articles)} articles",
         "article_ids": [a.article_id for a in articles],

@@ -5,33 +5,22 @@ import PipelineRunner from '../PipelineRunner';
 
 // Mock the api/client module
 vi.mock('../../api/client', () => ({
-  ingestArticles: vi.fn(),
-  clusterEvents: vi.fn(),
   runPipeline: vi.fn(),
 }));
 
 import * as api from '../../api/client';
 
-const mockIngest = api.ingestArticles as ReturnType<typeof vi.fn>;
-const mockCluster = api.clusterEvents as ReturnType<typeof vi.fn>;
 const mockRun = api.runPipeline as ReturnType<typeof vi.fn>;
 
 describe('PipelineRunner', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockIngest.mockResolvedValue({
-      message: 'Ingested 5 articles',
-      article_ids: ['a1', 'a2'],
-      total_claims: 20,
-    });
-    mockCluster.mockResolvedValue({
-      message: 'Clustered into 2 events',
-      event_ids: ['e1', 'e2'],
-    });
     mockRun.mockResolvedValue({
       stages: {
         source_intake: { articles_ingested: 5, claims_extracted: 20 },
         event_clustering: { events_created: 2 },
+        consensus: { events_resolved: 2 },
+        scoring: { events_scored: 2 },
       },
       summary: 'Ingested 5 articles, extracted 20 claims, clustered into 2 events.',
     });
@@ -39,7 +28,6 @@ describe('PipelineRunner', () => {
 
   it('renders pipeline stage indicator', () => {
     render(<PipelineRunner onComplete={vi.fn()} />);
-    // Steps render as "○ Source Intake" etc. — use getAllByText or a partial match
     expect(screen.getAllByText(/source intake/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/normalization/i).length).toBeGreaterThan(0);
     expect(screen.getAllByText(/clustering/i).length).toBeGreaterThan(0);
@@ -47,7 +35,6 @@ describe('PipelineRunner', () => {
 
   it('renders Run Full Pipeline button', () => {
     render(<PipelineRunner onComplete={vi.fn()} />);
-    // Button text is "▶ Run Full Pipeline"
     expect(screen.getByRole('button', { name: /run full pipeline/i })).toBeInTheDocument();
   });
 
@@ -79,7 +66,7 @@ describe('PipelineRunner', () => {
     await user.click(screen.getByRole('button', { name: /run full pipeline/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/ingesting articles/i)).toBeInTheDocument();
+      expect(screen.getByText(/ingesting/i)).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -88,16 +75,15 @@ describe('PipelineRunner', () => {
   });
 
   it('disables button while running', async () => {
-    // Make the pipeline hang until we check the button
-    let resolveIngest!: (v: unknown) => void;
-    mockIngest.mockReturnValue(new Promise(r => { resolveIngest = r; }));
+    let resolveRun!: (v: unknown) => void;
+    mockRun.mockReturnValue(new Promise(r => { resolveRun = r; }));
 
     const user = userEvent.setup();
     render(<PipelineRunner onComplete={vi.fn()} />);
     await user.click(screen.getByRole('button', { name: /run full pipeline/i }));
 
-    expect(screen.getByText(/running/i)).toBeDisabled();
-    resolveIngest({ message: 'done', article_ids: [], total_claims: 0 });
+    expect(screen.getByRole('button', { name: /running/i })).toBeDisabled();
+    resolveRun({ stages: {}, summary: 'done' });
   });
 
   it('shows Complete status and results pane after success', async () => {
@@ -119,7 +105,9 @@ describe('PipelineRunner', () => {
     await user.click(screen.getByRole('button', { name: /run full pipeline/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/ingested 5 articles/i)).toBeInTheDocument();
+      // The summary text appears in both the console log and the results pane
+      const elements = screen.getAllByText(/ingested 5 articles, extracted 20 claims, clustered into 2 events/i);
+      expect(elements.length).toBeGreaterThanOrEqual(1);
     });
   });
 
@@ -139,7 +127,7 @@ describe('PipelineRunner', () => {
   });
 
   it('shows error message when API fails', async () => {
-    mockIngest.mockRejectedValue(new Error('Network error'));
+    mockRun.mockRejectedValue(new Error('Network error'));
     const user = userEvent.setup();
     render(<PipelineRunner onComplete={vi.fn()} />);
 
@@ -151,7 +139,7 @@ describe('PipelineRunner', () => {
   });
 
   it('re-enables button after error', async () => {
-    mockIngest.mockRejectedValue(new Error('Fail'));
+    mockRun.mockRejectedValue(new Error('Fail'));
     const user = userEvent.setup();
     render(<PipelineRunner onComplete={vi.fn()} />);
 

@@ -72,11 +72,10 @@ export async function getEventDetail(eventId: string): Promise<EventDetail> {
 export async function updateReview(
   eventId: string,
   notes?: string,
-  overrides?: Record<string, any>,
 ): Promise<{message: string; event_id: string; human_reviewed: boolean}> {
-  return fetchJSON(`/events/${eventId}/review`, {
+  return fetchJSON(`/review/${eventId}/notes`, {
     method: 'PUT',
-    body: JSON.stringify({ notes, overrides }),
+    body: JSON.stringify({ notes: notes || '' }),
   });
 }
 

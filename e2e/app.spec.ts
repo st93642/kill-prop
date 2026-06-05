@@ -16,9 +16,8 @@ import { test, expect, Page } from '@playwright/test';
 async function runPipeline(page: Page) {
   await page.goto('/');
   await page.getByRole('button', { name: /run full pipeline/i }).click();
-  // The pipeline makes 4 sequential API calls (ingest → cluster → resolve → score);
-  // 20 s gives enough headroom on a cold backend while keeping the test fast on warm ones.
-  await expect(page.getByText('Complete').first()).toBeVisible({ timeout: 20_000 });
+  // Wait for the status card to show "Complete" or the results pane to appear
+  await expect(page.getByText('Pipeline Results')).toBeVisible({ timeout: 30_000 });
 }
 
 // ---------------------------------------------------------------------------

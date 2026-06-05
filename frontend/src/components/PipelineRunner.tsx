@@ -16,19 +16,10 @@ export default function PipelineRunner({ onComplete }: Props) {
     setResult(null);
 
     try {
-      setLog(prev => [...prev, '🚀 Stage 1: Ingesting articles...']);
-      const ingestResult = await api.ingestArticles();
-      setLog(prev => [...prev, `   ✅ ${ingestResult.message}`]);
+      setLog(prev => [...prev, '🚀 Stage 1-2: Ingesting & normalizing articles...']);
+      setLog(prev => [...prev, '📦 Stage 3-4: Extracting claims & clustering events...']);
+      setLog(prev => [...prev, '🎯 Stage 5-6: Running consensus, scoring & presentation...']);
 
-      setLog(prev => [...prev, '🔗 Stage 2-3: Extracting & normalizing claims...']);
-      await new Promise(r => setTimeout(r, 200));
-      setLog(prev => [...prev, '   ✅ Claims extracted and normalized']);
-
-      setLog(prev => [...prev, '📦 Stage 4: Clustering events...']);
-      const clusterResult = await api.clusterEvents();
-      setLog(prev => [...prev, `   ✅ ${clusterResult.message}`]);
-
-      setLog(prev => [...prev, '🎯 Stage 5: Running consensus & scoring...']);
       const pipelineResult = await api.runPipeline();
       setLog(prev => [...prev, `   ✅ ${pipelineResult.summary}`]);
       setResult(pipelineResult);

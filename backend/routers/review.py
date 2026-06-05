@@ -100,6 +100,22 @@ async def trigger_recluster(event_id: str):
     return {"message": "Event flagged for reclustering", "event_id": event.event_id}
 
 
+@router.put("/{event_id}/notes")
+async def update_review_notes(event_id: str, notes: str = ""):
+    """Update human review notes for an event."""
+    event = events_store.get(event_id)
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    event.human_review_notes = notes
+    event.human_reviewed = True
+    archive_stores()
+    return {
+        "message": "Review notes updated",
+        "event_id": event.event_id,
+        "human_reviewed": event.human_reviewed,
+    }
+
+
 @router.get("/dashboard")
 async def review_dashboard():
     """Get review dashboard stats."""

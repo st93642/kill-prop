@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import os
 import logging
-from huggingface_hub import hf_hub_download
-from llama_cpp import Llama
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +15,9 @@ def get_llm():
     """Lazy load the LLM."""
     global _llm
     if _llm is None:
+        from huggingface_hub import hf_hub_download
+        from llama_cpp import Llama
+
         logger.info(f"Downloading model {MODEL_FILE} from {MODEL_REPO}...")
         try:
             model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE)

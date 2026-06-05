@@ -68,11 +68,15 @@ def _make_datetime(val: str | datetime | None) -> datetime | None:
 
 def _dump_json(path: Path, records: dict[str, Any]) -> None:
     """Atomically write *records* to *path* as pretty-printed JSON."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    with open(tmp, "w", encoding="utf-8") as fh:
-        json.dump(records, fh, indent=2, default=_serialise, ensure_ascii=False)
-    tmp.replace(path)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(".tmp")
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(records, fh, indent=2, default=_serialise, ensure_ascii=False)
+        tmp.replace(path)
+    except (OSError, IOError) as e:
+        import logging
+        logging.getLogger(__name__).warning(f"Failed to persist data to {path}: {e}")
 
 
 def _load_json(path: Path) -> dict[str, Any]:

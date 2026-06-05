@@ -25,8 +25,8 @@ export async function healthCheck(): Promise<{status: string}> {
   return fetchJSON('/health');
 }
 
-export async function runPipeline(): Promise<PipelineResult> {
-  return fetchJSON('/pipeline/run');
+export async function runPipeline(useLLM: boolean = false, useAPI: boolean = false): Promise<PipelineResult> {
+  return fetchJSON(`/pipeline/run?use_llm=${useLLM}&use_api=${useAPI}&days_back=1`);
 }
 
 export async function ingestArticles(): Promise<{message: string; article_ids: string[]; total_claims: number}> {
@@ -67,6 +67,30 @@ export async function listEvents(params?: {
 
 export async function getEventDetail(eventId: string): Promise<EventDetail> {
   return fetchJSON(`/events/${eventId}`);
+}
+
+export async function getCrossPoolAnalysis(eventId: string): Promise<CrossPoolAnalysis> {
+  return fetchJSON(`/events/${eventId}/cross-pool-analysis`);
+}
+
+export interface CrossPoolAnalysis {
+  event_id: string;
+  title: string;
+  pool_count: number;
+  pools_represented: string[];
+  fields_analysis: FieldAnalysis[];
+  llm_comparison: string | null;
+  dispute_layer: {
+    contradictions: { type: string; field: string; description: string }[];
+  };
+}
+
+export interface FieldAnalysis {
+  field: string;
+  status: string;
+  values_by_pool: Record<string, { claim: string; source: string }[]>;
+  agreement_level: string;
+  analysis: string;
 }
 
 export async function updateReview(

@@ -63,15 +63,28 @@ async def health_check():
 
 
 @app.get("/api/pipeline/run")
-async def run_full_pipeline():
-    """Run the full pipeline end-to-end."""
+async def run_full_pipeline(use_llm: bool = False, use_api: bool = False, days_back: int = 1):
+    """Run the full pipeline end-to-end.
+    
+    Args:
+        use_llm: If True, use the local LLM (TinyLlama) for claim extraction.
+        use_api: If True, fetch real articles from NewsAPI (requires NEWSAPI_KEY env var).
+        days_back: Only include articles from this many days back (default 1 = today).
+    """
+    import os
     from backend.pipeline.ingestion import ingest_articles
     from backend.pipeline.clustering import cluster_claims_into_events
     from backend.pipeline.consensus import resolve_all_events
     from backend.pipeline.scoring import score_event_claims
 
-    # Stage 1: Ingest
-    articles = ingest_articles(seed=True)
+    # Set LLM mode
+    if use_llm:
+        os.environ["USE_LLM"] = "true"
+    else:
+        os.environ["USE_LLM"] = "false"
+
+    # Stage 1: Ingest (seed data or real API)
+    articles = ingest_articles(seed=not use_api, days_back=days_back)
     article_count = len(articles)
     claim_count = sum(len(a.claims) for a in articles)
 
@@ -97,6 +110,7 @@ async def run_full_pipeline():
         },
         "summary": f"Ingested {article_count} articles, extracted {claim_count} claims, "
                    f"clustered into {len(events)} events.",
+        "llm_enabled": use_llm,
     }
 
 

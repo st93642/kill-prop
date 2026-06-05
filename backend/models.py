@@ -17,6 +17,11 @@ class SourcePool(str, Enum):
     RUSSIAN_INDEPENDENT = "russian_independent"
     CHINESE_STATE = "chinese_state"
     NEUTRAL_WIRE = "neutral_wire"
+    MIDDLE_EASTERN = "middle_eastern"
+    LATIN_AMERICAN = "latin_american"
+    AFRICAN = "african"
+    SOUTH_ASIAN = "south_asian"
+    EAST_ASIAN = "east_asian"
 
 
 class ClaimBucket(str, Enum):

@@ -91,6 +91,8 @@ export interface SourceClaim {
   bucket: string;
   score: number;
   claim_id?: string;
+  propaganda_flags?: string[];
+  article_url?: string | null;
 }
 
 export interface EventDetail {

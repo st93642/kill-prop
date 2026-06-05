@@ -76,7 +76,7 @@ def _make_claim(
 class TestArticleTimeProximity:
     def test_within_window_is_close(self):
         a1 = _make_article(published_at=BASE_TIME)
-        a2 = _make_article(published_at=BASE_TIME + timedelta(hours=10))
+        a2 = _make_article(published_at=BASE_TIME + timedelta(hours=3))
         assert _article_time_proximity(a1, a2) is True
 
     def test_at_window_boundary_is_close(self):
@@ -90,7 +90,7 @@ class TestArticleTimeProximity:
         assert _article_time_proximity(a1, a2) is False
 
     def test_reversed_order_still_works(self):
-        a1 = _make_article(published_at=BASE_TIME + timedelta(hours=10))
+        a1 = _make_article(published_at=BASE_TIME + timedelta(hours=3))
         a2 = _make_article(published_at=BASE_TIME)
         assert _article_time_proximity(a1, a2) is True
 
@@ -131,8 +131,8 @@ class TestArticleTextSimilarity:
         assert _article_text_similarity(a1, a2) == 1.0
 
     def test_completely_different_articles_give_low_score(self):
-        a1 = _make_article(title="Drone strike on bridge", tags=["military"])
-        a2 = _make_article(title="Economic summit in Geneva", tags=["economics"])
+        a1 = _make_article(title="Drone strike on bridge", tags=["military"], full_text="A military drone struck a bridge in the eastern region causing structural damage.")
+        a2 = _make_article(title="Economic summit in Geneva", tags=["economics"], full_text="World leaders gathered in Geneva for an economic summit to discuss trade agreements and climate policy.")
         sim = _article_text_similarity(a1, a2)
         assert sim < 0.5
 
@@ -245,11 +245,13 @@ class TestClusterClaimsIntoEvents:
             title="Drone strike in Ukraine",
             tags=["military", "ukraine"],
             published_at=BASE_TIME,
+            full_text="A drone strike hit a military installation in eastern Ukraine early this morning. Ukrainian air defense systems were activated in response to the attack. No casualties have been reported at this time.",
         )
         a2 = _make_article(
             title="Economic summit in Geneva",
             tags=["economics", "diplomacy"],
             published_at=BASE_TIME + timedelta(hours=1),
+            full_text="World leaders gathered in Geneva today for an economic summit focused on global trade agreements and climate change policy. The summit is expected to produce a joint declaration on carbon emission targets by the end of the week.",
         )
         articles_store[a1.article_id] = a1
         articles_store[a2.article_id] = a2

@@ -2,26 +2,20 @@ import { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import * as api from './api/client';
 import type {
-  DashboardStats,
   EventSummary,
   EventDetail,
-  ArticleSummary,
 } from './types';
 import EventFeed from './components/EventFeed';
 import EventDetailView from './components/EventDetail';
-import ReviewConsole from './components/ReviewConsole';
 import PipelineRunner from './components/PipelineRunner';
-import ArticleViewer from './components/ArticleViewer';
 
-type View = 'events' | 'detail' | 'review' | 'articles' | 'pipeline';
+type View = 'events' | 'detail' | 'pipeline';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('pipeline');
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [events, setEvents] = useState<EventSummary[]>([]);
   const [eventDetail, setEventDetail] = useState<EventDetail | null>(null);
-  const [articles, setArticles] = useState<ArticleSummary[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [pipelineComplete, setPipelineComplete] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,25 +32,6 @@ function App() {
       setLoading(false);
     }
   }, [filter]);
-
-  const loadArticles = useCallback(async () => {
-    try {
-      const data = await api.listArticles();
-      setArticles(data);
-    } catch (err: any) {
-      // Articles may not be ingested yet
-      setArticles([]);
-    }
-  }, []);
-
-  const loadStats = useCallback(async () => {
-    try {
-      const data = await api.getReviewDashboard();
-      setStats(data);
-    } catch {
-      // Stats may not be available
-    }
-  }, []);
 
   const handlePipelineComplete = useCallback(() => {
     setPipelineComplete(true);
@@ -82,21 +57,16 @@ function App() {
     setSelectedEventId(null);
     setEventDetail(null);
     loadEvents();
-    loadStats();
   };
 
   const handleRefresh = async () => {
     loadEvents();
-    loadStats();
-    loadArticles();
   };
 
-  // Load data when switching to a view
+  // Load events when switching to events view
   useEffect(() => {
     if (currentView === 'events') loadEvents();
-    if (currentView === 'review') { loadEvents(); loadStats(); }
-    if (currentView === 'articles') loadArticles();
-  }, [currentView, loadEvents, loadArticles, loadStats]);
+  }, [currentView, loadEvents]);
 
   return (
     <div className="app-layout">
@@ -119,25 +89,11 @@ function App() {
             onClick={() => setCurrentView('events')}
           >
             <span className="nav-icon">📰</span>
-            Event Feed
-          </button>
-          <button
-            className={currentView === 'review' ? 'active' : ''}
-            onClick={() => setCurrentView('review')}
-          >
-            <span className="nav-icon">🔍</span>
-            Review Console
-          </button>
-          <button
-            className={currentView === 'articles' ? 'active' : ''}
-            onClick={() => setCurrentView('articles')}
-          >
-            <span className="nav-icon">📄</span>
-            Articles
+            Events
           </button>
         </nav>
         <div className="sidebar-footer">
-          v0.1.0 • {stats ? `${stats.total_events} events` : '...'}
+          v0.2.0 • {events.length} events
         </div>
       </aside>
 
@@ -148,8 +104,6 @@ function App() {
             {currentView === 'pipeline' && 'Pipeline Runner'}
             {currentView === 'events' && 'Event Feed'}
             {currentView === 'detail' && (eventDetail?.title || 'Event Detail')}
-            {currentView === 'review' && 'Review Console'}
-            {currentView === 'articles' && 'Articles'}
           </h2>
           <div className="header-actions">
             {currentView !== 'pipeline' && (
@@ -194,20 +148,6 @@ function App() {
               onBack={handleBack}
               onUpdate={handleSelectEvent}
             />
-          )}
-
-          {currentView === 'review' && (
-            <ReviewConsole
-              events={events}
-              stats={stats}
-              loading={loading}
-              onSelectEvent={handleSelectEvent}
-              onRefresh={loadEvents}
-            />
-          )}
-
-          {currentView === 'articles' && (
-            <ArticleViewer articles={articles} />
           )}
         </div>
       </main>

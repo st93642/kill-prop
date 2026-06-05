@@ -9,6 +9,8 @@ export default function PipelineRunner({ onComplete }: Props) {
   const [status, setStatus] = useState<'idle' | 'running' | 'done'>('idle');
   const [log, setLog] = useState<string[]>([]);
   const [result, setResult] = useState<any>(null);
+  const [useLLM, setUseLLM] = useState(false);
+  const [useAPI, setUseAPI] = useState(false);
 
   const handleRun = async () => {
     setStatus('running');
@@ -16,11 +18,11 @@ export default function PipelineRunner({ onComplete }: Props) {
     setResult(null);
 
     try {
-      setLog(prev => [...prev, '🚀 Stage 1-2: Ingesting & normalizing articles...']);
+      setLog(prev => [...prev, `🚀 Stage 1-2: Ingesting & normalizing articles... (Source: ${useAPI ? 'Live API' : 'Seed data'}, LLM: ${useLLM ? 'ON' : 'OFF'})`]);
       setLog(prev => [...prev, '📦 Stage 3-4: Extracting claims & clustering events...']);
       setLog(prev => [...prev, '🎯 Stage 5-6: Running consensus, scoring & presentation...']);
 
-      const pipelineResult = await api.runPipeline();
+      const pipelineResult = await api.runPipeline(useLLM, useAPI);
       setLog(prev => [...prev, `   ✅ ${pipelineResult.summary}`]);
       setResult(pipelineResult);
 
@@ -72,7 +74,29 @@ export default function PipelineRunner({ onComplete }: Props) {
 
       <div style={{ background: 'var(--bg-card)', borderRadius: 8, border: '1px solid var(--border)', padding: 16, marginBottom: 16 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <h3 style={{ fontSize: 14, fontWeight: 600 }}>Pipeline Console</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600 }}>Pipeline Console</h3>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useLLM}
+                onChange={(e) => setUseLLM(e.target.checked)}
+                disabled={status === 'running'}
+                style={{ cursor: 'pointer' }}
+              />
+              LLM
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text-muted)', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={useAPI}
+                onChange={(e) => setUseAPI(e.target.checked)}
+                disabled={status === 'running'}
+                style={{ cursor: 'pointer' }}
+              />
+              Live API
+            </label>
+          </div>
           <button
             className="btn btn-primary"
             onClick={handleRun}

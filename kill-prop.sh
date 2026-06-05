@@ -24,6 +24,14 @@ warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$*"; }
 fail()  { printf "${RED}[ERROR]${NC} %s\n" "$*"; exit 1; }
 cmd()   { printf "${CYAN}  ▶${NC} %s\n" "$*"; }
 
+# ── Load API keys from news.env ──────────────────────────────────────
+if [ -f "$ROOT/news.env" ]; then
+    export NEWSAPI_KEY=$(cat "$ROOT/news.env" | tr -d '\n\r' | xargs)
+    info "Loaded NEWSAPI_KEY from news.env"
+else
+    warn "news.env not found — live API fetching disabled"
+fi
+
 # ── Prerequisite checks ──────────────────────────────────────────────
 info "Checking prerequisites …"
 

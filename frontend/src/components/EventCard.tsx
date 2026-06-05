@@ -32,31 +32,17 @@ export default function EventCard({ event, onClick }: Props) {
       </div>
       <div className="event-summary">{event.fact_summary}</div>
       <div className="event-footer">
-        <span>
-          {event.corroborating_sources} sources
-        </span>
-        <span>·</span>
-        <span>{event.pool_spread} pools</span>
+        <span>{event.corroborating_sources} sources · {event.pool_count} pools</span>
         {event.dispute_count > 0 && (
-          <>
-            <span>·</span>
-            <span style={{ color: 'var(--accent-yellow)' }}>
-              ⚠ {event.dispute_count} dispute{event.dispute_count > 1 ? 's' : ''}
-            </span>
-          </>
+          <span style={{ color: 'var(--accent-yellow)', marginLeft: 8 }}>
+            ⚠ {event.dispute_count} disputed
+          </span>
         )}
-        <span>·</span>
-        <div className="pool-dots">
+        <span style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
           {event.pools.map(p => (
             <span key={p} className={`pool-dot ${p}`} title={poolLabels[p] || p} />
           ))}
-        </div>
-        {event.human_reviewed && (
-          <>
-            <span>·</span>
-            <span style={{ color: 'var(--accent-green)' }}>✓ Reviewed</span>
-          </>
-        )}
+        </span>
       </div>
     </div>
   );

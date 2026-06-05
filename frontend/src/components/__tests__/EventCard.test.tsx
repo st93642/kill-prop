@@ -22,31 +22,27 @@ describe('EventCard', () => {
 
   it('renders corroborating sources count', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.getByText(/3 sources/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 sources · 3 pools/i)).toBeInTheDocument();
   });
 
-  it('renders pool spread', () => {
+  it('renders pool count in compact format', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.getByText(/2 pools/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 sources · 3 pools/i)).toBeInTheDocument();
   });
 
   it('shows dispute warning when dispute_count > 0', () => {
     render(<EventCard event={mockEventWithDisputes} onClick={vi.fn()} />);
-    expect(screen.getByText(/2 disputes/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 disputed/i)).toBeInTheDocument();
   });
 
   it('does not show dispute warning when no disputes', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.queryByText(/dispute/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/disputed/i)).not.toBeInTheDocument();
   });
 
-  it('shows reviewed badge when human_reviewed is true', () => {
+  it('does not show reviewed badge on card', () => {
+    // Reviewed badge was removed from compact card view
     render(<EventCard event={mockEventWithDisputes} onClick={vi.fn()} />);
-    expect(screen.getByText(/Reviewed/i)).toBeInTheDocument();
-  });
-
-  it('does not show reviewed badge when not reviewed', () => {
-    render(<EventCard event={mockEvent} onClick={vi.fn()} />);
     expect(screen.queryByText(/Reviewed/i)).not.toBeInTheDocument();
   });
 
@@ -74,11 +70,5 @@ describe('EventCard', () => {
     render(<EventCard event={mockEventWithDisputes} onClick={vi.fn()} />);
     const badge = screen.getByText('disputed');
     expect(badge).toHaveClass('badge-yellow');
-  });
-
-  it('renders singular "dispute" label for exactly 1 dispute', () => {
-    const event = { ...mockEvent, dispute_count: 1 };
-    render(<EventCard event={event} onClick={vi.fn()} />);
-    expect(screen.getByText(/1 dispute$/i)).toBeInTheDocument();
   });
 });

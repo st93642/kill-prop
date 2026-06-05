@@ -242,7 +242,7 @@ def resolve_field(
         if _is_contradictory(field_name, top.value, s.value, ontology)
     ]
 
-    # Rule 1: Confirmed - strong support, no contradiction
+    # Rule 1: Confirmed — 2+ independent source pools agree, no contradiction
     if top.pool_count >= 2 and len(contradictory) == 0:
         return FieldResolution(
             field_name=field_name,
@@ -315,6 +315,8 @@ def resolve_event(event: Event) -> Event:
 
     for field in resolvable_fields:
         resolution = resolve_field(field, event_claims)
+        # Only CONFIRMED (2+ pools agree) and ABSTRACTED (contradiction resolved upward)
+        # go into the fact layer. SINGLE_SOURCE and DISPUTED do NOT.
         if resolution.status == FieldResolutionStatus.CONFIRMED and resolution.value:
             fact_fields[field] = resolution.value
         elif resolution.status == FieldResolutionStatus.ABSTRACTED and resolution.value:
@@ -333,8 +335,20 @@ def resolve_event(event: Event) -> Event:
                     for cid in (s.claim_ids or [])
                 ],
             ))
-        elif resolution.status == FieldResolutionStatus.SINGLE_SOURCE and resolution.value:
-            fact_fields[field] = resolution.value
+        elif resolution.status == FieldResolutionStatus.SINGLE_SOURCE:
+            # Single-source claims are NOT facts — they go to dispute layer
+            dispute_fields[field] = resolution
+            contradictions.append(ContradictionInfo(
+                contradiction_type=ContradictionType.FIELD_LEVEL,
+                outcome=ContradictionOutcome.UNRESOLVED,
+                field_name=field,
+                description=f"Only one source pool reported {field.replace('_', ' ')}",
+                state=EventContradictionState.DISPUTED_DETAIL,
+                claims_involved=[
+                    cid for s in (resolution.all_candidates or [])
+                    for cid in (s.claim_ids or [])
+                ],
+            ))
 
     # Build fact layer
     summary_parts = []
@@ -354,11 +368,22 @@ def resolve_event(event: Event) -> Event:
 
     pool_spread = len({c.source_pool for c in event_claims})
 
+    # Determine confidence based on cross-pool corroboration, not just contradiction count
+    if len(contradictions) == 0 and pool_spread >= 2 and len(fact_fields) > 0:
+        confidence = ConfidenceClass.CONFIRMED
+    elif len(fact_fields) > 0:
+        confidence = ConfidenceClass.PROBABLE
+    elif pool_spread >= 2:
+        confidence = ConfidenceClass.PROBABLE
+    else:
+        confidence = ConfidenceClass.SINGLE_SOURCE
+
+    event.overall_confidence = confidence
+
     event.fact_layer = FactLayer(
         summary=" ".join(summary_parts) if summary_parts else "Event reported",
         fields=fact_fields,
-        confidence=ConfidenceClass.CONFIRMED if len(contradictions) == 0 else
-                   ConfidenceClass.PROBABLE,
+        confidence=confidence,
         corroborating_sources=len({c.source_name for c in event_claims}),
         pool_spread=pool_spread,
     )

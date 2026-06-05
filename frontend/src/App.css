@@ -297,6 +297,7 @@ body {
 .badge-red { background: rgba(248, 113, 113, 0.15); color: var(--accent-red); }
 .badge-blue { background: rgba(96, 165, 250, 0.15); color: var(--accent-blue); }
 .badge-purple { background: rgba(167, 139, 250, 0.15); color: var(--accent-purple); }
+.badge-orange { background: rgba(251, 146, 60, 0.15); color: var(--accent-orange); }
 .badge-gray { background: rgba(107, 114, 128, 0.15); color: var(--text-muted); }
 
 .event-summary {
@@ -328,6 +329,7 @@ body {
 .pool-dot.western_mainstream { background: var(--accent-blue); }
 .pool-dot.russian_state { background: var(--accent-red); }
 .pool-dot.russian_independent { background: var(--accent-purple); }
+.pool-dot.chinese_state { background: var(--accent-orange); }
 .pool-dot.neutral_wire { background: var(--accent-green); }
 
 /* Filters */

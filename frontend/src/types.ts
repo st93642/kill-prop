@@ -2,6 +2,7 @@ export type SourcePool =
   | 'western_mainstream'
   | 'russian_state'
   | 'russian_independent'
+  | 'chinese_state'
   | 'neutral_wire';
 
 export type ConfidenceClass =

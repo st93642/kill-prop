@@ -18,6 +18,7 @@ export default function EventCard({ event, onClick }: Props) {
     western_mainstream: 'Western',
     russian_state: 'Russian State',
     russian_independent: 'Russian Ind.',
+    chinese_state: 'Chinese State',
     neutral_wire: 'Wire',
   };
 

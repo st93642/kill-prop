@@ -49,6 +49,7 @@ export default function EventFeed({ events, loading, filter, onFilterChange, onS
           <option value="western_mainstream">Western</option>
           <option value="russian_state">Russian State</option>
           <option value="russian_independent">Russian Independent</option>
+          <option value="chinese_state">Chinese State</option>
           <option value="neutral_wire">Neutral Wire</option>
         </select>
         <select

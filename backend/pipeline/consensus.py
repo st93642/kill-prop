@@ -145,24 +145,24 @@ def _lowest_common_safe_ancestor(
                 break
         chains.append(chain)
 
-    # Find the last common element
+    # Find the lowest common ancestor by intersecting all ancestor chains.
+    # Each chain includes the value itself followed by its ancestors.
     if not chains:
         return None
-    # Compare each position
-    for pos in range(max(len(c) for c in chains)):
-        if pos >= min(len(c) for c in chains):
-            break
-        vals_at_pos = {c[pos] for c in chains}
-        if len(vals_at_pos) == 1:
-            continue  # All same at this level
-        else:
-            # Return the previous level (the common ancestor)
-            if pos == 0:
-                return None
-            return chains[0][pos - 1]
 
-    # All values are on the same chain - return the most specific common ancestor
-    return chains[0][-1] if chains else None
+    common_set = set(chains[0])
+    for chain in chains[1:]:
+        common_set &= set(chain)
+
+    if not common_set:
+        return None
+
+    # Return the most specific (lowest) common ancestor — the first element of
+    # chains[0] that appears in the intersection.
+    for ancestor in chains[0]:
+        if ancestor in common_set:
+            return ancestor
+    return None
 
 
 def _is_user_safe_abstraction(field_name: str, ancestor: str) -> bool:

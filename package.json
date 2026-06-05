@@ -1,0 +1,26 @@
+{
+  "name": "kill-prop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:ui": "playwright test --ui"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/st93642/kill-prop.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/st93642/kill-prop/issues"
+  },
+  "homepage": "https://github.com/st93642/kill-prop#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
+  }
+}

@@ -15,6 +15,7 @@ class SourcePool(str, Enum):
     WESTERN_MAINSTREAM = "western_mainstream"
     RUSSIAN_STATE = "russian_state"
     RUSSIAN_INDEPENDENT = "russian_independent"
+    CHINESE_STATE = "chinese_state"
     NEUTRAL_WIRE = "neutral_wire"
 
 
@@ -239,6 +240,9 @@ source_reliability_priors: dict[str, float] = {
     "cnn": 0.70,
     "interfax": 0.60,
     "guardian": 0.80,
+    "xinhua": 0.40,
+    "peoples_daily": 0.35,
+    "global_times": 0.30,
 }
 
 # Default field ontology for the abstraction ladder

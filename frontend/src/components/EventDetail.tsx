@@ -16,6 +16,7 @@ export default function EventDetailView({ event, onBack, onUpdate }: Props) {
     western_mainstream: 'Western',
     russian_state: 'Russian State',
     russian_independent: 'Russian Ind.',
+    chinese_state: 'Chinese State',
     neutral_wire: 'Wire',
   };
 
@@ -241,6 +242,7 @@ function getPoolBadgeColor(pool: string): string {
     case 'western_mainstream': return 'blue';
     case 'russian_state': return 'red';
     case 'russian_independent': return 'purple';
+    case 'chinese_state': return 'orange';
     case 'neutral_wire': return 'green';
     default: return 'gray';
   }

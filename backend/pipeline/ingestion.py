@@ -117,7 +117,68 @@ SEED_ARTICLES: list[dict] = [
         ),
         "topic_tags": ["geopolitics", "military", "casualties"],
     },
+    {
+        "canonical_url": "https://tass.ru/armiya-i-opk/1234567",
+        "title": "МО РФ: Средства ПВО сбили украинский беспилотник над Брянской областью",
+        "author": "ТАСС",
+        "published_at": datetime(2026, 6, 5, 4, 30),
+        "source_name": "TASS",
+        "source_pool": SourcePool.RUSSIAN_STATE,
+        "source_country": "RU",
+        "language": "ru",
+        "full_text": (
+            "Москва. 5 июня. ТАСС. Дежурными средствами ПВО украинский беспилотный летательный аппарат "
+            "уничтожен над территорией Брянской области, сообщили в Минобороны РФ. "
+            "Попытка киевского режима совершить террористическую атаку была пресечена около 04:30 мск. "
+            "Пострадавших и разрушений нет. Ранее в ведомстве сообщили о перехвате еще двух дронов."
+        ),
+        "topic_tags": ["military", "air_defense"],
+    },
+    {
+        "canonical_url": "https://english.news.cn/20260605/abcde",
+        "title": "China calls for restraint after drone strikes in Ukraine",
+        "author": "Xinhua",
+        "published_at": datetime(2026, 6, 5, 8, 0),
+        "source_name": "Xinhua",
+        "source_pool": SourcePool.CHINESE_STATE,
+        "source_country": "CN",
+        "language": "en",
+        "full_text": (
+            "Beijing, June 5 (Xinhua) -- China on Friday urged all parties involved in the Ukraine crisis "
+            "to exercise maximum restraint and avoid targeting civilian infrastructure. "
+            "Foreign Ministry spokesperson stated that the international community should promote peace talks. "
+            "The comments came after reports of drone strikes near the Dnipro river. "
+            "China maintains a neutral position and calls for a political settlement of the conflict."
+        ),
+        "topic_tags": ["diplomacy", "geopolitics"],
+    },
 ]
+
+
+def translate_text(text: str, source_lang: str) -> str:
+    """Translate text to English if it's not already in English.
+    
+    In a real-world scenario, this would call an external API like DeepL or Google Translate.
+    For this MVP, we provide a mock translation that flags the text as translated.
+    """
+    if source_lang == "en":
+        return text
+    
+    # Mock translation logic
+    translations = {
+        "ru": {
+            "МО РФ: Средства ПВО сбили украинский беспилотник над Брянской областью": 
+                "Russian MoD: Air defense systems shot down Ukrainian drone over Bryansk region",
+            "Москва. 5 июня. ТАСС. Дежурными средствами ПВО украинский беспилотный летательный аппарат уничтожен над территорией Брянской области, сообщили в Минобороны РФ. Попытка киевского режима совершить террористическую атаку была пресечена около 04:30 мск. Пострадавших и разрушений нет. Ранее в ведомстве сообщили о перехвате еще двух дронов.":
+                "Moscow. June 5. TASS. A Ukrainian unmanned aerial vehicle was destroyed over the territory of the Bryansk region by air defense systems on duty, the Russian Ministry of Defense reported. An attempt by the Kyiv regime to carry out a terrorist attack was thwarted around 04:30 Moscow time. There were no casualties or destruction. Earlier, the department reported the interception of two more drones."
+        }
+    }
+    
+    translated = translations.get(source_lang, {}).get(text)
+    if translated:
+        return translated
+    
+    return f"[Translated from {source_lang}] {text}"
 
 
 def _extract_claims_from_article(article: Article) -> list[Claim]:
@@ -215,6 +276,14 @@ def ingest_articles(seed: bool = True) -> list[Article]:
 
         for seed_data in SEED_ARTICLES:
             article = Article(**seed_data)
+            
+            # Apply translation if needed
+            if article.language != "en":
+                article.title = translate_text(article.title, article.language)
+                article.full_text = translate_text(article.full_text, article.language)
+                # Keep original language but the text is now English for the pipeline
+                # In a real system, we might keep both.
+            
             claims = _extract_claims_from_article(article)
             # Normalize claims immediately so arguments are populated
             claims = normalize_claims_batch(claims)

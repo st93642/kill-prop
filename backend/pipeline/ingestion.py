@@ -6,6 +6,7 @@ and a mock fetch mechanism that demonstrates the full pipeline.
 
 from __future__ import annotations
 
+import os
 import re
 from datetime import datetime
 
@@ -284,7 +285,14 @@ def ingest_articles(seed: bool = True) -> list[Article]:
                 # Keep original language but the text is now English for the pipeline
                 # In a real system, we might keep both.
             
-            claims = _extract_claims_from_article(article)
+            if os.getenv("USE_LLM", "false").lower() == "true":
+                from backend.pipeline.llm_extraction import extract_claims_llm
+                claims = extract_claims_llm(article)
+                if not claims:
+                    claims = _extract_claims_from_article(article)
+            else:
+                claims = _extract_claims_from_article(article)
+
             # Normalize claims immediately so arguments are populated
             claims = normalize_claims_batch(claims)
             article.claims = claims

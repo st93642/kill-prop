@@ -37,5 +37,8 @@ htmlcov/
 # Persistent storage (killprop data directory)
 .killprop/
 
+# LLM models
+*.gguf
+
 # Test results
 test-results/

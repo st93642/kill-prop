@@ -14,6 +14,7 @@ from backend.models import (
     SourcePool,
     events_store,
 )
+from backend.storage import archive_stores
 
 router = APIRouter(prefix="/api/review", tags=["review"])
 
@@ -68,6 +69,8 @@ async def override_field(
         summary_parts.append(f"{fname.replace('_', ' ')}: {fval.replace('_', ' ')}")
     event.fact_layer.summary = "; ".join(summary_parts)
 
+    archive_stores()
+
     return {
         "message": f"Field '{field}' overridden to '{override_value}'",
         "event_id": event.event_id,
@@ -81,6 +84,7 @@ async def approve_event(event_id: str):
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
     event.human_reviewed = True
+    archive_stores()
     return {"message": "Event approved", "event_id": event.event_id}
 
 
@@ -92,6 +96,7 @@ async def trigger_recluster(event_id: str):
         raise HTTPException(status_code=404, detail="Event not found")
     # In MVP, just mark it
     event.human_review_notes = (event.human_review_notes or "") + "\n[FLAGGED FOR RECLUSTER]"
+    archive_stores()
     return {"message": "Event flagged for reclustering", "event_id": event.event_id}
 
 

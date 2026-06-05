@@ -16,13 +16,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers import articles, events, review
+from backend.storage import archive_stores, restore_stores
 
 app = FastAPI(
     title="kill-prop - Source Triangulation News Analyzer",
     description="Compares reporting across Western and Russian-source pools, "
                 "identifies overlapping verified facts, flags unsupported or "
                 "emotionally loaded claims, and exposes where framing diverges.",
-    version="0.1.0",
+    version="0.1.1",
+    on_startup=[restore_stores],
+    on_shutdown=[archive_stores],
 )
 
 # CORS for frontend development
@@ -82,6 +85,9 @@ async def run_full_pipeline():
     for event in resolved:
         all_scores[event.event_id] = score_event_claims(event)
 
+    # Persist results to disk
+    archive_stores()
+
     return {
         "stages": {
             "source_intake": {"articles_ingested": article_count, "claims_extracted": claim_count},
@@ -92,3 +98,52 @@ async def run_full_pipeline():
         "summary": f"Ingested {article_count} articles, extracted {claim_count} claims, "
                    f"clustered into {len(events)} events.",
     }
+
+
+@app.get("/api/storage/status")
+async def storage_status():
+    """Return the current persistent storage summary."""
+    from backend.storage import storage_summary
+
+    return {
+        "in_memory": {
+            "articles": len(articles_store),
+            "claims": len(claims_store),
+            "events": len(events_store),
+        },
+        "persisted": storage_summary(),
+    }
+
+
+@app.post("/api/storage/archive")
+async def archive_now():
+    """Manually trigger persistence of current in-memory stores to disk."""
+    archive_stores()
+    from backend.storage import storage_summary
+
+    return {"message": "Stores archived", "persisted": storage_summary()}
+
+
+@app.post("/api/storage/restore")
+async def restore_now():
+    """Manually trigger restoration of persisted data into memory."""
+    restore_stores()
+    from backend.storage import storage_summary
+
+    return {
+        "message": "Stores restored from disk",
+        "in_memory": {
+            "articles": len(articles_store),
+            "claims": len(claims_store),
+            "events": len(events_store),
+        },
+    }
+
+
+@app.post("/api/storage/clear")
+async def clear_storage():
+    """Clear all persisted data (does not affect in-memory stores)."""
+    from backend.storage import clear_persisted_data
+
+    clear_persisted_data()
+    return {"message": "Persisted storage cleared"}

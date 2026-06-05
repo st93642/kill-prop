@@ -13,6 +13,7 @@ from backend.models import (
 from backend.pipeline.clustering import cluster_claims_into_events, get_all_events, get_event
 from backend.pipeline.consensus import resolve_all_events, resolve_event
 from backend.pipeline.scoring import score_event_claims
+from backend.storage import archive_stores
 
 router = APIRouter(prefix="/api/events", tags=["events"])
 
@@ -22,6 +23,7 @@ async def cluster():
     """Cluster claims into events and run consensus."""
     events = cluster_claims_into_events()
     resolved = resolve_all_events()
+    archive_stores()
     return {
         "message": f"Clustered into {len(events)} events",
         "event_ids": [e.event_id for e in resolved],

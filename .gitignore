@@ -33,3 +33,9 @@ htmlcov/
 
 # Logs
 *.log
+
+# Persistent storage (killprop data directory)
+.killprop/
+
+# Test results
+test-results/

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import PipelineRunner from '../PipelineRunner';
 
@@ -83,7 +83,7 @@ describe('PipelineRunner', () => {
     await user.click(screen.getByRole('button', { name: /run full pipeline/i }));
 
     expect(screen.getByRole('button', { name: /running/i })).toBeDisabled();
-    resolveRun({ stages: {}, summary: 'done' });
+    await act(async () => { resolveRun({ stages: {}, summary: 'done' }); });
   });
 
   it('shows Complete status and results pane after success', async () => {

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
@@ -116,7 +116,7 @@ class Claim(BaseModel):
     attribution: Attribution = Field(default_factory=Attribution)
     confidence: float = 0.0
     propaganda_flags: list[str] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class Article(BaseModel):
@@ -126,7 +126,7 @@ class Article(BaseModel):
     title: str
     author: str | None = None
     published_at: datetime | None = None
-    retrieved_at: datetime = Field(default_factory=datetime.utcnow)
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     source_name: str
     source_pool: SourcePool
     source_country: str
@@ -209,8 +209,8 @@ class Event(BaseModel):
     event_id: str = Field(default_factory=lambda: f"e_{uuid.uuid4().hex[:12]}")
     title: str = ""
     topic: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     article_ids: list[str] = Field(default_factory=list)
     claim_ids: list[str] = Field(default_factory=list)
     source_pools_represented: list[SourcePool] = Field(default_factory=list)

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ArticleViewer from '../ArticleViewer';
 import { mockArticles } from '../../test/fixtures';
@@ -144,7 +144,7 @@ describe('ArticleViewer', () => {
     await user.click(screen.getByText('Russian drone strike hits key bridge near Kyiv'));
 
     expect(screen.getByText(/loading article/i)).toBeInTheDocument();
-    resolve(mockArticleDetail);
+    await act(async () => { resolve(mockArticleDetail); });
   });
 
   it('shows claim arguments in table', async () => {

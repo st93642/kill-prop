@@ -28,7 +28,7 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: 'uvicorn backend.main:app --port 8000',
+      command: '/home/s/kill-prop/.venv/bin/uvicorn backend.main:app --port 8000',
       port: 8000,
       timeout: 30_000,
       reuseExistingServer: true,

@@ -142,13 +142,13 @@ class TestIngestArticles:
         claims_store.clear()
 
     def test_seed_ingests_all_seed_articles(self):
-        articles = ingest_articles(seed=True)
+        articles = ingest_articles(seed=True, days_back=2)
         # Only Europe/Russia political/military seed articles pass the geo+topic filter
         # (19 out of 21 — Iran and Venezuela are excluded)
         assert len(articles) == 19
 
     def test_seed_articles_saved_to_store(self):
-        ingest_articles(seed=True)
+        ingest_articles(seed=True, days_back=2)
         assert len(articles_store) == 19
 
     def test_claims_extracted_and_saved(self):

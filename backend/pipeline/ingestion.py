@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from email.utils import parsedate_to_datetime
 
 from backend.models import (
@@ -569,7 +569,7 @@ def ingest_articles(seed: bool = True, days_back: int = 1) -> list[Article]:
     if seed:
         from backend.pipeline.normalization import normalize_claims_batch
 
-        cutoff = datetime.utcnow() - timedelta(days=days_back)
+        cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_back)
         ingested = 0
         for seed_data in SEED_ARTICLES:
             # Skip articles older than the cutoff
@@ -741,8 +741,7 @@ def _fetch_rss_feeds(days_back: int = 1) -> list[Article]:
     
     logger = logging.getLogger(__name__)
     articles: list[Article] = []
-    cutoff = datetime.utcnow() - timedelta(days=days_back)
-    
+    cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_back)
     for pool_name, feeds in RSS_FEEDS.items():
         pool = SourcePool(pool_name)
         
@@ -857,7 +856,7 @@ def _fetch_from_newsapi(days_back: int = 1) -> list[Article]:
         
         logger = logging.getLogger(__name__)
         articles: list[Article] = []
-        from_date = (datetime.utcnow() - timedelta(days=days_back)).strftime("%Y-%m-%d")
+        from_date = (datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_back)).strftime("%Y-%m-%d")
         
         for pool_name, source_configs in NEWSAPI_SOURCES.items():
             pool = SourcePool(pool_name)
@@ -890,7 +889,7 @@ def _fetch_from_newsapi(days_back: int = 1) -> list[Article]:
                                 pass
                         
                         # Skip old articles
-                        if pub_dt and pub_dt < datetime.utcnow() - timedelta(days=days_back):
+                        if pub_dt and pub_dt < datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_back):
                             continue
 
                         title = item.get("title", "Untitled")

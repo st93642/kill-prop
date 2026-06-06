@@ -36,14 +36,12 @@ test.describe('Application shell', () => {
     await expect(page.getByText('Source Triangulation Analyzer')).toBeVisible();
   });
 
-  test('sidebar has all four navigation buttons', async ({ page }) => {
+  test('sidebar has navigation buttons', async ({ page }) => {
     await page.goto('/');
     // Scope to sidebar nav to avoid matching "Run Full Pipeline" button
     const nav = page.locator('.sidebar-nav');
     await expect(nav.getByRole('button', { name: /pipeline/i })).toBeVisible();
-    await expect(nav.getByRole('button', { name: /event feed/i })).toBeVisible();
-    await expect(nav.getByRole('button', { name: /review console/i })).toBeVisible();
-    await expect(nav.getByRole('button', { name: /articles/i })).toBeVisible();
+    await expect(nav.getByRole('button', { name: /events/i })).toBeVisible();
   });
 
   test('default view is Pipeline Runner', async ({ page }) => {
@@ -169,62 +167,17 @@ test.describe('Event Detail view', () => {
     await expect(page.locator('.badge').first()).toBeVisible();
   });
 
-  test('shows fact layer section', async ({ page }) => {
-    await expect(page.getByText(/facts agreed across sources/i)).toBeVisible();
+  test('shows cross-pool claim analysis section', async ({ page }) => {
+    await expect(page.getByText(/cross-pool claim analysis/i)).toBeVisible({ timeout: 15_000 });
   });
 
-  test('shows source claims table', async ({ page }) => {
-    await expect(page.getByText(/source claims/i)).toBeVisible();
+  test('shows source articles section', async ({ page }) => {
+    await expect(page.getByText(/source articles/i)).toBeVisible({ timeout: 15_000 });
   });
 
   test('back button returns to Event Feed', async ({ page }) => {
     await page.getByRole('button', { name: /back to events/i }).click();
     await expect(page.getByRole('heading', { name: 'Event Feed' })).toBeVisible();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Review Console
-// ---------------------------------------------------------------------------
-
-test.describe('Review Console view', () => {
-  test.beforeEach(async ({ page }) => {
-    await runPipeline(page);
-    await page.getByRole('button', { name: /review console/i }).click();
-    await expect(page.getByRole('heading', { name: 'Review Console' })).toBeVisible();
-  });
-
-  test('shows dashboard stats', async ({ page }) => {
-    await expect(page.getByText(/total events/i)).toBeVisible();
-  });
-
-  test('shows events list', async ({ page }) => {
-    const rows = page.locator('.review-row, .event-card');
-    await expect(rows.first()).toBeVisible({ timeout: 10_000 });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Articles view
-// ---------------------------------------------------------------------------
-
-test.describe('Articles view', () => {
-  test.beforeEach(async ({ page }) => {
-    await runPipeline(page);
-    await page.getByRole('button', { name: /articles/i }).click();
-    await expect(page.getByRole('heading', { name: 'Articles' })).toBeVisible();
-  });
-
-  test('shows articles list after pipeline run', async ({ page }) => {
-    // Articles are rendered as buttons in a column; check the heading
-    await expect(page.getByText(/articles \(\d+\)/i)).toBeVisible({ timeout: 10_000 });
-  });
-
-  test('clicking an article shows its claims', async ({ page }) => {
-    // Articles are <button> elements in the left column
-    await page.locator('button.btn').first().click();
-    // Extracted Claims pane should appear
-    await expect(page.getByText(/extracted claims/i)).toBeVisible({ timeout: 10_000 });
   });
 });
 
@@ -237,20 +190,12 @@ test.describe('Sidebar navigation', () => {
     await page.goto('/');
   });
 
-  test('can switch between all views using the sidebar', async ({ page }) => {
+  test('can switch between views using the sidebar', async ({ page }) => {
     const nav = page.locator('.sidebar-nav');
 
-    // Event Feed
-    await nav.getByRole('button', { name: /event feed/i }).click();
+    // Events
+    await nav.getByRole('button', { name: /events/i }).click();
     await expect(page.getByRole('heading', { name: 'Event Feed' })).toBeVisible();
-
-    // Review Console
-    await nav.getByRole('button', { name: /review console/i }).click();
-    await expect(page.getByRole('heading', { name: 'Review Console' })).toBeVisible();
-
-    // Articles
-    await nav.getByRole('button', { name: /articles/i }).click();
-    await expect(page.getByRole('heading', { name: 'Articles' })).toBeVisible();
 
     // Pipeline
     await nav.getByRole('button', { name: /pipeline/i }).click();
@@ -263,17 +208,17 @@ test.describe('Sidebar navigation', () => {
     const pipelineBtn = nav.getByRole('button', { name: /pipeline/i });
     await expect(pipelineBtn).toHaveClass(/active/);
 
-    // After clicking Event Feed it becomes active
-    await nav.getByRole('button', { name: /event feed/i }).click();
-    await expect(nav.getByRole('button', { name: /event feed/i })).toHaveClass(/active/);
+    // After clicking Events it becomes active
+    await nav.getByRole('button', { name: /events/i }).click();
+    await expect(nav.getByRole('button', { name: /events/i })).toHaveClass(/active/);
     await expect(pipelineBtn).not.toHaveClass(/active/);
   });
 
   test('sidebar footer shows event count after pipeline run', async ({ page }) => {
     await runPipeline(page);
-    // Navigate to Review Console which triggers stats load
-    await page.locator('.sidebar-nav').getByRole('button', { name: /review console/i }).click();
-    await expect(page.getByRole('heading', { name: 'Review Console' })).toBeVisible();
+    // Navigate to Events view
+    await page.locator('.sidebar-nav').getByRole('button', { name: /events/i }).click();
+    await expect(page.getByRole('heading', { name: 'Event Feed' })).toBeVisible();
     // Footer should now show "<n> events"
     const footer = page.locator('.sidebar-footer');
     await expect(footer).toContainText(/\d+ events/i, { timeout: 10_000 });

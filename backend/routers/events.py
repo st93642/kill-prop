@@ -87,6 +87,7 @@ async def list_events(
             "source_claim_count": len(e.source_claims_layer),
             "updated_at": e.updated_at,
             "human_reviewed": e.human_reviewed,
+            "latest_published_at": _get_latest_published_at(e),
         }
         for e in events
     ]
@@ -212,6 +213,21 @@ def _get_article_url_for_claim(claim_id: str) -> str | None:
         if article:
             return article.canonical_url
     return None
+
+
+def _get_latest_published_at(event: Event) -> str | None:
+    """Get the latest published_at timestamp across the event's articles."""
+    from backend.models import articles_store
+    dates = []
+    for sc in event.source_claims_layer:
+        claim = claims_store.get(sc.claim_id)
+        if claim:
+            article = articles_store.get(claim.source_article_id)
+            if article and article.published_at:
+                dates.append(article.published_at)
+    if not dates:
+        return None
+    return max(dates).isoformat()
 
 
 # ── Europe+Russia geo-keywords (shared with ingestion._infer_tags) ─
@@ -373,33 +389,34 @@ async def cross_pool_analysis(event_id: str):
 
     # Try LLM-powered qualitative comparison
     llm_comparison = None
+    llm_available = False
     try:
-        from backend.pipeline.llm import get_llm
+        from backend.pipeline.llm import llm_chat, is_llm_available
+        llm_available = is_llm_available()
 
-        # Build a compact summary for the LLM
-        claim_summaries = []
-        for pool_key, claims in sorted(pool_claims.items()):
-            claim_texts = "; ".join(c["claim"][:200] for c in claims[:3])
-            claim_summaries.append(f"[{pool_key}]: {claim_texts}")
+        if llm_available:
+            # Build a compact summary for the LLM
+            claim_summaries = []
+            for pool_key, claims in sorted(pool_claims.items()):
+                claim_texts = "; ".join(c["claim"][:200] for c in claims[:3])
+                claim_summaries.append(f"[{pool_key}]: {claim_texts}")
 
-        prompt = f"""<|system|>
-You are an expert propaganda analyst. Compare how different media pools report the same event.
-Identify: (1) where pools agree on facts, (2) where they contradict each other, 
-(3) what each pool omits, (4) loaded language or framing differences.
-Be specific — quote phrases from each pool. Keep response under 300 words.
+            prompt = (
+                "You are an objective news analyst. Compare how different media "
+                "sources report the same event. Identify in plain language: "
+                "(1) where sources agree on facts, (2) where they contradict "
+                "each other, (3) what each source omits, (4) any emotionally "
+                "loaded language or framing differences. Be specific \u2014 quote "
+                "phrases from each source. Keep response under 250 words.\n\n"
+                f"Event: {event.title}\n"
+                "Statements by source:\n"
+                f"{chr(10).join(claim_summaries)}\n\nAnalysis:"
+            )
 
-Event: {event.title}
-Claims by pool:
-{chr(10).join(claim_summaries)}
-</s>
-<|assistant|>
-Analysis:"""
-
-        llm = get_llm()
-        response = llm(prompt, max_tokens=512, stop=["</s>"], echo=False)
-        llm_comparison = response["choices"][0]["text"].strip()
-    except Exception:
-        pass  # LLM unavailable — skip
+            llm_comparison = llm_chat(prompt, max_tokens=400, temperature=0.3)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"LLM comparison failed: {e}")
 
     return {
         "event_id": event.event_id,
@@ -408,6 +425,7 @@ Analysis:"""
         "pools_represented": list(pool_claims.keys()),
         "fields_analysis": fields_analysis,
         "llm_comparison": llm_comparison,
+        "llm_available": llm_available,
         "dispute_layer": {
             "contradictions": [
                 {

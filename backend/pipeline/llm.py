@@ -1,35 +1,83 @@
-"""LLM provider for kill-prop."""
+"""LLM provider for kill-prop.
+
+Uses Groq's free OpenAI-compatible REST API (no SDK dependency needed).
+Falls back gracefully when no GROQ_API_KEY is configured.
+
+Get a free key at: https://console.groq.com/keys
+"""
 from __future__ import annotations
 
-import os
+import json
 import logging
+import os
+import urllib.request
 
 logger = logging.getLogger(__name__)
 
-MODEL_REPO = "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF"
-MODEL_FILE = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf"
+GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
-_llm = None
+
+def is_llm_available() -> bool:
+    """Check whether LLM inference is available (i.e. a Groq API key is set)."""
+    return bool(os.getenv("GROQ_API_KEY", "").strip())
+
+
+def llm_chat(prompt: str, max_tokens: int = 512, temperature: float = 0.3) -> str | None:
+    """Call the Groq chat completions endpoint and return the text response.
+
+    Returns None if the LLM is unavailable or the call fails.
+    """
+    api_key = os.getenv("GROQ_API_KEY", "").strip()
+    if not api_key:
+        return None
+
+    payload = json.dumps({
+        "model": GROQ_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are a concise, objective news analyst."},
+            {"role": "user", "content": prompt},
+        ],
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        GROQ_ENDPOINT,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "User-Agent": "BalancedNews/1.0",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.loads(resp.read().decode("utf-8"))
+        return body["choices"][0]["message"]["content"].strip()
+    except Exception as e:
+        logger.warning(f"Groq LLM call failed: {e}")
+        return None
+
+
+# ── Legacy compatibility shim ──────────────────────────────────────────
+# The original code called get_llm()(prompt, max_tokens=..., stop=..., echo=False)
+# and expected a response dict with choices[0].text.  We keep the same call
+# signature so callers in llm_extraction.py and events.py work unchanged.
 
 def get_llm():
-    """Lazy load the LLM."""
-    global _llm
-    if _llm is None:
-        from huggingface_hub import hf_hub_download
-        from llama_cpp import Llama
+    """Return a callable that mimics the old llama-cpp interface.
 
-        logger.info(f"Downloading model {MODEL_FILE} from {MODEL_REPO}...")
-        try:
-            model_path = hf_hub_download(repo_id=MODEL_REPO, filename=MODEL_FILE)
-            logger.info(f"Model downloaded to {model_path}")
-            _llm = Llama(
-                model_path=model_path,
-                n_ctx=2048,
-                n_threads=2,
-                verbose=False
-            )
-            logger.info("LLM initialized successfully.")
-        except Exception as e:
-            logger.error(f"Failed to initialize LLM: {e}")
-            raise e
-    return _llm
+    Usage (legacy):
+        llm = get_llm()
+        response = llm(prompt, max_tokens=512, stop=["</s>"], echo=False)
+        text = response["choices"][0]["text"]
+    """
+    def _call(prompt: str, max_tokens: int = 512, **_kwargs) -> dict:
+        text = llm_chat(prompt, max_tokens=max_tokens)
+        if text is None:
+            raise RuntimeError("LLM unavailable — set GROQ_API_KEY in news.env")
+        return {"choices": [{"text": text}]}
+    return _call

@@ -56,6 +56,7 @@ export interface EventSummary {
   source_claim_count: number;
   updated_at: string;
   human_reviewed: boolean;
+  latest_published_at?: string | null;
 }
 
 export interface FactLayer {

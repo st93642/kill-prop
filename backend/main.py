@@ -11,12 +11,38 @@ FastAPI backend with the full 6-stage pipeline:
 
 from __future__ import annotations
 
+import os
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from backend.routers import articles, events, review
 from backend.storage import archive_stores, restore_stores
+
+
+def _load_env_file() -> None:
+    """Load KEY=value pairs from news.env into os.environ.
+
+    Skips blank lines and comments. Existing env vars are NOT overridden
+    so explicit shell exports take priority.
+    """
+    env_path = Path(__file__).resolve().parent.parent / "news.env"
+    if not env_path.exists():
+        return
+    for line in env_path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip()
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_env_file()
 
 app = FastAPI(
     title="kill-prop - Source Triangulation News Analyzer",
@@ -46,9 +72,11 @@ app.include_router(review.router)
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint."""
+    from backend.pipeline.llm import is_llm_available
     return {
         "status": "healthy",
         "version": "0.1.0",
+        "llm_available": is_llm_available(),
         "pipeline": {
             "stages": [
                 "source_intake",
@@ -63,28 +91,28 @@ async def health_check():
 
 
 @app.get("/api/pipeline/run")
-async def run_full_pipeline(use_llm: bool = False, use_api: bool = False, days_back: int = 1):
+async def run_full_pipeline(use_llm: bool = False, use_api: bool = True, days_back: int = 3):
     """Run the full pipeline end-to-end.
-    
+
     Args:
-        use_llm: If True, use the local LLM (TinyLlama) for claim extraction.
-        use_api: If True, fetch real articles from NewsAPI (requires NEWSAPI_KEY env var).
-        days_back: Only include articles from this many days back (default 1 = today).
+        use_llm: If True, use the LLM (Groq) for claim extraction.
+        use_api: If True (default), fetch real articles from RSS feeds. Falls back
+                 to seed data if RSS returns nothing.
+        days_back: Only include articles from this many days back (default 3).
     """
-    import os
     from backend.pipeline.ingestion import ingest_articles
     from backend.pipeline.clustering import cluster_claims_into_events
     from backend.pipeline.consensus import resolve_all_events
     from backend.pipeline.scoring import score_event_claims
 
     # Set LLM mode
-    if use_llm:
-        os.environ["USE_LLM"] = "true"
-    else:
-        os.environ["USE_LLM"] = "false"
+    os.environ["USE_LLM"] = "true" if use_llm else "false"
 
-    # Stage 1: Ingest (seed data or real API)
+    # Stage 1: Ingest — try real RSS feeds first, fall back to seed data
     articles = ingest_articles(seed=not use_api, days_back=days_back)
+    if not articles and use_api:
+        articles = ingest_articles(seed=True, days_back=days_back)
+
     article_count = len(articles)
     claim_count = sum(len(a.claims) for a in articles)
 

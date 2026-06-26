@@ -24,12 +24,15 @@ warn()  { printf "${YELLOW}[WARN]${NC} %s\n" "$*"; }
 fail()  { printf "${RED}[ERROR]${NC} %s\n" "$*"; exit 1; }
 cmd()   { printf "${CYAN}  ▶${NC} %s\n" "$*"; }
 
-# ── Load API keys from news.env ──────────────────────────────────────
+# ── Load API keys from news.env (KEY=value format) ───────────────────
 if [ -f "$ROOT/news.env" ]; then
-    export NEWSAPI_KEY=$(cat "$ROOT/news.env" | tr -d '\n\r' | xargs)
-    info "Loaded NEWSAPI_KEY from news.env"
+    set -a
+    # shellcheck disable=SC1090
+    source <(grep -v '^#' "$ROOT/news.env" | grep -v '^$')
+    set +a
+    info "Loaded API keys from news.env"
 else
-    warn "news.env not found — live API fetching disabled"
+    warn "news.env not found — live fetching and LLM analysis disabled"
 fi
 
 # ── Prerequisite checks ──────────────────────────────────────────────

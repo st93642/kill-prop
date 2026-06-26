@@ -44,7 +44,7 @@ describe('API client', () => {
     it('calls GET /api/pipeline/run with default params', async () => {
       mockFetch.mockReturnValue(mockOk({ stages: {}, summary: 'done' }));
       await client.runPipeline();
-      expect(mockFetch).toHaveBeenCalledWith('/api/pipeline/run?use_llm=false&use_api=false&days_back=1', expect.any(Object));
+      expect(mockFetch).toHaveBeenCalledWith('/api/pipeline/run?use_llm=false&use_api=true&days_back=3', expect.any(Object));
     });
   });
 

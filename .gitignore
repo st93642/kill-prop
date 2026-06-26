@@ -42,3 +42,5 @@ htmlcov/
 
 # Test results
 test-results/
+
+news.env

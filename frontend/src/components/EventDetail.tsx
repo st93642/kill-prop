@@ -210,6 +210,32 @@ export default function EventDetailView({ event, onBack }: Props) {
           </div>
         )}
 
+        {/* Show notice when LLM is not configured */}
+        {crossPool && !crossPool.llm_available && !crossPool.llm_comparison && (
+          <div
+            style={{
+              padding: '12px 16px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+              marginBottom: 20,
+              fontSize: 13,
+              color: 'var(--text-muted)',
+            }}
+          >
+            💡 Add a free Groq API key to <code>news.env</code> to enable AI-powered
+            cross-source summaries. Get one at{' '}
+            <a
+              href="https://console.groq.com/keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'var(--accent-blue)' }}
+            >
+              console.groq.com/keys
+            </a>
+          </div>
+        )}
+
         {/* Field-by-field comparison */}
         {crossPool &&
           crossPool.fields_analysis.length > 0 && (

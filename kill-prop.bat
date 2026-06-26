@@ -14,6 +14,16 @@ cd /d "%~dp0"
 
 echo [kill-prop] Starting kill-prop ...
 
+REM ── Load API keys from news.env (KEY=value format) ─────────────────
+if exist "news.env" (
+    for /f "usebackq eol=# tokens=1,* delims==" %%a in ("news.env") do (
+        set "%%a=%%b"
+    )
+    echo [kill-prop] Loaded API keys from news.env
+) else (
+    echo [WARN] news.env not found — live fetching and LLM analysis disabled
+)
+
 REM ── Python virtual environment ─────────────────────────────────────
 set VENV=backend\.venv
 if not exist "%VENV%\Scripts\activate.bat" (

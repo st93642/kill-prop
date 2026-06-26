@@ -25,8 +25,8 @@ export async function healthCheck(): Promise<{status: string}> {
   return fetchJSON('/health');
 }
 
-export async function runPipeline(useLLM: boolean = false, useAPI: boolean = false): Promise<PipelineResult> {
-  return fetchJSON(`/pipeline/run?use_llm=${useLLM}&use_api=${useAPI}&days_back=1`);
+export async function runPipeline(useLLM: boolean = false, useAPI: boolean = true): Promise<PipelineResult> {
+  return fetchJSON(`/pipeline/run?use_llm=${useLLM}&use_api=${useAPI}&days_back=3`);
 }
 
 export async function ingestArticles(): Promise<{message: string; article_ids: string[]; total_claims: number}> {
@@ -80,6 +80,7 @@ export interface CrossPoolAnalysis {
   pools_represented: string[];
   fields_analysis: FieldAnalysis[];
   llm_comparison: string | null;
+  llm_available: boolean;
   dispute_layer: {
     contradictions: { type: string; field: string; description: string }[];
   };

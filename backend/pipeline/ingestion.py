@@ -813,26 +813,24 @@ RSS_FEEDS: dict[str, list[dict]] = {
     # Russian independent — critical of Kremlin (in exile / foreign-funded)
     "russian_independent": [
         # Meduza is an independent Latvian-based Russian-language outlet.
-        {"url": "https://meduza.io/rss/podcasts/English.xml", "source": "Meduza", "primary": True},
+        {"url": "https://meduza.io/rss/en", "source": "Meduza", "primary": True},
     ],
     # Middle Eastern — Arab/Persian/Turkish perspectives
     "middle_eastern": [
         # Al Jazeera already primary in neutral_wire; Anadolu (Turkey) is a
         # genuinely Middle-Eastern state wire that does not duplicate AJ.
-        {"url": "https://www.aa.com.tr/rss/default?cat=guncel&tag=en", "source": "Anadolu Agency", "primary": True},
+        {"url": "https://www.aa.com.tr/rss/english?cat=english", "source": "Anadolu Agency", "primary": True},
         {"url": "https://www.tehrantimes.com/rss", "source": "Tehran Times", "primary": True},
     ],
     # Latin American — South/Central America perspectives
     "latin_american": [
         # TeleSUR is a multistate leftist Latin American network (Caracas HQ).
-        {"url": "https://www.telesurenglish.net/rss", "source": "TeleSUR English", "primary": True},
+        {"url": "https://www.telesurenglish.net/rss/index.xml", "source": "TeleSUR English", "primary": True},
     ],
     # African — continental perspectives
     "african": [
-        # Daily Trust (Nigeria) and The East African (Kenya) cover the
-        # continent from genuinely African editorial desks.
+        # Daily Trust (Nigeria) covers the continent from a West African desk.
         {"url": "https://www.dailytrust.com.ng/feed/", "source": "Daily Trust", "primary": True},
-        {"url": "https://www.theeastafrican.co.ke/tea/rss/rss.xml", "source": "The East African", "primary": True},
     ],
     # South Asian — India, Pakistan, Bangladesh, Sri Lanka
     "south_asian": [
@@ -941,8 +939,21 @@ def _fetch_rss_feeds(days_back: int = 1) -> list[Article]:
                     feed["url"],
                     headers={"User-Agent": "kill-prop/0.1 RSS Reader"}
                 )
-                with urllib.request.urlopen(req, timeout=15) as resp:
-                    raw = resp.read()
+                try:
+                    with urllib.request.urlopen(req, timeout=15) as resp:
+                        raw = resp.read()
+                except urllib.error.URLError as ssl_err:
+                    # Retry with unverified SSL context for sites with
+                    # self-signed or chain certificate issues.
+                    if "CERTIFICATE" in str(ssl_err) or "SSL" in str(ssl_err):
+                        import ssl as _ssl
+                        ctx = _ssl.create_default_context()
+                        ctx.check_hostname = False
+                        ctx.verify_mode = _ssl.CERT_NONE
+                        with urllib.request.urlopen(req, timeout=15, context=ctx) as resp:
+                            raw = resp.read()
+                    else:
+                        raise
                 
                 # Parse RSS XML
                 root = ET.fromstring(raw)

@@ -1,5 +1,6 @@
 import type { EventSummary } from '../types';
 import EventCard from './EventCard';
+import { POOL_LABELS, POOL_ORDER } from '../labels';
 
 interface Props {
   events: EventSummary[];
@@ -10,32 +11,37 @@ interface Props {
   onRefresh: () => void;
 }
 
-export default function EventFeed({ events, loading, filter, onFilterChange, onSelectEvent, onRefresh }: Props) {
+export default function EventFeed({
+  events,
+  loading,
+  filter,
+  onFilterChange,
+  onSelectEvent,
+  onRefresh,
+}: Props) {
+  const confirmedCount = events.filter(e => e.overall_confidence === 'confirmed').length;
+  const conflictCount = events.filter(e => e.dispute_count > 0).length;
+  const regionCount = new Set(events.flatMap(e => e.pools)).size;
+
   return (
     <div>
       {events.length > 0 && (
         <div className="stats-row">
           <div className="stat-card">
             <div className="stat-value blue">{events.length}</div>
-            <div className="stat-label">Total Events</div>
+            <div className="stat-label">Stories</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value green">
-              {events.filter(e => e.overall_confidence === 'confirmed').length}
-            </div>
+            <div className="stat-value green">{confirmedCount}</div>
             <div className="stat-label">Confirmed</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value yellow">
-              {events.filter(e => e.dispute_count > 0).length}
-            </div>
-            <div className="stat-label">With Disputes</div>
+            <div className="stat-value yellow">{conflictCount}</div>
+            <div className="stat-label">Conflicting reports</div>
           </div>
           <div className="stat-card">
-            <div className="stat-value purple">
-              {events.reduce((s, e) => s + e.pool_count, 0)}
-            </div>
-            <div className="stat-label">Pool Spread</div>
+            <div className="stat-value purple">{regionCount}</div>
+            <div className="stat-label">Regions covered</div>
           </div>
         </div>
       )}
@@ -44,41 +50,46 @@ export default function EventFeed({ events, loading, filter, onFilterChange, onS
         <select
           value={filter.pool}
           onChange={e => onFilterChange({ ...filter, pool: e.target.value })}
+          aria-label="Filter by region"
         >
-          <option value="">All Pools</option>
-          <option value="western_mainstream">Western</option>
-          <option value="russian_state">Russian State</option>
-          <option value="russian_independent">Russian Independent</option>
-          <option value="chinese_state">Chinese State</option>
-          <option value="neutral_wire">Neutral Wire</option>
+          <option value="">All regions</option>
+          {POOL_ORDER.map(p => (
+            <option key={p} value={p}>
+              {POOL_LABELS[p]}
+            </option>
+          ))}
         </select>
         <select
           value={filter.min_confidence}
           onChange={e => onFilterChange({ ...filter, min_confidence: e.target.value })}
+          aria-label="Filter by reliability"
         >
-          <option value="">All Confidence</option>
+          <option value="">All reliability</option>
           <option value="confirmed">Confirmed</option>
-          <option value="probable">Probable</option>
-          <option value="disputed">Disputed</option>
+          <option value="probable">Likely true</option>
+          <option value="disputed">Conflicting reports</option>
         </select>
         <input
           type="text"
-          placeholder="Filter by topic..."
+          placeholder="Search stories…"
           value={filter.topic}
           onChange={e => onFilterChange({ ...filter, topic: e.target.value })}
+          aria-label="Search stories"
         />
-        <button className="btn btn-sm" onClick={onRefresh}>↻</button>
+        <button className="btn btn-sm" onClick={onRefresh} title="Reload stories">
+          ↻
+        </button>
       </div>
 
       {loading ? (
         <div className="loading">
           <div className="spinner" />
-          Loading events...
+          Loading stories…
         </div>
       ) : events.length === 0 ? (
         <div className="empty-state">
           <div className="empty-icon">📭</div>
-          <p>No events yet. Run the pipeline first to ingest and cluster news articles.</p>
+          <p>No stories yet. Click “Refresh news” to pull the latest coverage.</p>
         </div>
       ) : (
         <div className="event-feed">

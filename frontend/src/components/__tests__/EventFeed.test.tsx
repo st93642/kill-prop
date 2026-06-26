@@ -18,7 +18,7 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByText(/loading events/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading stories/i)).toBeInTheDocument();
   });
 
   it('shows empty state when not loading and no events', () => {
@@ -32,7 +32,7 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByText(/no events yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/no stories yet/i)).toBeInTheDocument();
   });
 
   it('renders event cards for each event', () => {
@@ -60,11 +60,11 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByText('Total Events')).toBeInTheDocument();
-    // "Confirmed" also appears as a select option; check the stat-label specifically
-    expect(document.querySelector('.stat-label')?.textContent).toBeTruthy();
+    expect(screen.getByText('Stories')).toBeInTheDocument();
     expect(screen.getAllByText('Confirmed').length).toBeGreaterThan(0);
-    expect(screen.getByText('With Disputes')).toBeInTheDocument();
+    // "Conflicting reports" appears as both a stat label and a filter option
+    expect(screen.getAllByText('Conflicting reports').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText('Regions covered')).toBeInTheDocument();
   });
 
   it('shows correct confirmed count', () => {
@@ -85,7 +85,7 @@ describe('EventFeed', () => {
     expect(confirmedCount).toBeInTheDocument();
   });
 
-  it('renders pool filter select', () => {
+  it('renders region filter select', () => {
     render(
       <EventFeed
         events={[]}
@@ -96,10 +96,10 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByDisplayValue('All Pools')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('All regions')).toBeInTheDocument();
   });
 
-  it('renders confidence filter select', () => {
+  it('renders reliability filter select', () => {
     render(
       <EventFeed
         events={[]}
@@ -110,10 +110,10 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByDisplayValue('All Confidence')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('All reliability')).toBeInTheDocument();
   });
 
-  it('renders topic text input', () => {
+  it('renders search input', () => {
     render(
       <EventFeed
         events={[]}
@@ -124,10 +124,10 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    expect(screen.getByPlaceholderText(/filter by topic/i)).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/search stories/i)).toBeInTheDocument();
   });
 
-  it('calls onFilterChange when pool filter changes', async () => {
+  it('calls onFilterChange when region filter changes', async () => {
     const user = userEvent.setup();
     const onFilterChange = vi.fn();
     render(
@@ -140,14 +140,14 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    await user.selectOptions(screen.getByDisplayValue('All Pools'), 'western_mainstream');
+    await user.selectOptions(screen.getByDisplayValue('All regions'), 'western_mainstream');
     expect(onFilterChange).toHaveBeenCalledWith({
       ...defaultFilter,
       pool: 'western_mainstream',
     });
   });
 
-  it('calls onFilterChange when topic input changes', async () => {
+  it('calls onFilterChange when search input changes', async () => {
     const user = userEvent.setup();
     const onFilterChange = vi.fn();
     render(
@@ -160,7 +160,7 @@ describe('EventFeed', () => {
         onRefresh={vi.fn()}
       />,
     );
-    await user.type(screen.getByPlaceholderText(/filter by topic/i), 'military');
+    await user.type(screen.getByPlaceholderText(/search stories/i), 'military');
     expect(onFilterChange).toHaveBeenCalled();
   });
 

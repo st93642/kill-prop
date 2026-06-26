@@ -24,6 +24,19 @@ if not exist "%VENV%\Scripts\activate.bat" (
 echo [kill-prop] Installing backend dependencies ...
 call "%VENV%\Scripts\pip.exe" install -q -r backend\requirements.txt
 
+REM ── Optional LLM dependency (pre-built wheel, no compilation) ───────
+if /i "%KILLPROP_INSTALL_LLM%"=="yes" (
+    echo [kill-prop] Installing optional llama-cpp-python from pre-built wheel ...
+    call "%VENV%\Scripts\pip.exe" install --only-binary :all: ^
+        --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu ^
+        -r backend\requirements-llm.txt
+    if errorlevel 1 (
+        echo [WARN] LLM wheel install failed. Continuing with rule-based extraction.
+    )
+) else (
+    echo [kill-prop] Skipping optional LLM. Set KILLPROP_INSTALL_LLM=yes to enable.
+)
+
 REM ── Node dependencies ──────────────────────────────────────────────
 if not exist "frontend\node_modules" (
     echo [kill-prop] Installing frontend dependencies ...

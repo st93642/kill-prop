@@ -63,7 +63,12 @@ class TestStorageDir:
     def test_default_dir(self, monkeypatch):
         monkeypatch.delenv(STORAGE_DIR_ENV, raising=False)
         d = _storage_dir()
-        assert str(d).endswith(".killprop/data")
+        # Compare by path parts so this passes on both POSIX and Windows.
+        assert d.is_absolute()
+        parts = d.parts
+        assert ".killprop" in parts
+        assert "data" in parts
+        assert parts[-2:] == (".killprop", "data")
         assert d.is_absolute()
 
     def test_env_override(self):

@@ -1,9 +1,14 @@
-export type SourcePool = 
+export type SourcePool =
   | 'western_mainstream'
   | 'russian_state'
   | 'russian_independent'
   | 'chinese_state'
-  | 'neutral_wire';
+  | 'neutral_wire'
+  | 'middle_eastern'
+  | 'latin_american'
+  | 'african'
+  | 'south_asian'
+  | 'east_asian';
 
 export type ConfidenceClass =
   | 'confirmed'

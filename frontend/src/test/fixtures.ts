@@ -1,4 +1,4 @@
-import type { EventSummary, EventDetail, ArticleSummary, DashboardStats } from '../../types';
+import type { EventSummary, EventDetail, ArticleSummary, DashboardStats } from '../types';
 
 export const mockEvent: EventSummary = {
   event_id: 'e_test001',

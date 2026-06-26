@@ -1,0 +1,25 @@
+# OPTIONAL: local LLM claim extraction via llama.cpp / TinyLlama.
+#
+# This file uses PRE-BUILT WHEELS from the llama-cpp-python wheel index, so
+# there is NO C++ compilation at install time and no need for Visual Studio
+# Build Tools / cmake / gcc. Install takes ~30 seconds on most machines.
+#
+# Install with the prebuilt-wheel index:
+#
+#     pip install -r backend/requirements-llm.txt \
+#         --extra-index-url https://abetlen.github.io/llama-cpp-python/whl/cpu
+#
+# For GPU acceleration, swap the index URL for one of:
+#   * CUDA 12.x:  https://abetlen.github.io/llama-cpp-python/whl/cu121
+#   * CUDA 12.4:  https://abetlen.github.io/llama-cpp-python/whl/cu124
+#   * Metal       https://abetlen.github.io/llama-cpp-python/whl/metal
+#
+# If the wheel index is unreachable, pip falls back to building from source
+# (which requires a C++ toolchain) — pass `--only-binary :all:` to forbid
+# that fallback and fail fast instead of hanging.
+#
+# Without these packages the app runs normally using the rule-based claim
+# extractor in backend/pipeline/ingestion.py. The LLM is loaded lazily on
+# first use (see backend/pipeline/llm.py:get_llm) and falls back gracefully.
+llama-cpp-python>=0.2.0
+huggingface_hub>=0.20.0

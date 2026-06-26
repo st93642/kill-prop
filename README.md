@@ -154,18 +154,25 @@ flowchart LR
 
 ## Source Pools
 
-| Pool | Sources | Regions |
-|------|---------|---------|
-| **Western Mainstream** | BBC, NYT, France 24 | US, UK, Europe |
+The RSS feeds behind each pool are listed in `backend/pipeline/ingestion.py:RSS_FEEDS`. Only the `primary=True` feed in each pool is fetched; the same outlet may legitimately appear as a non-primary reference in another pool without causing duplicate fetches.
+
+| Pool | Primary RSS sources | Regions |
+|------|---------------------|---------|
+| **Western Mainstream** | BBC News, New York Times | US, UK, Europe |
 | **Russian State** | RT, TASS | Russia |
-| **Russian Independent** | Al Jazeera (proxy) | Russia-critical |
-| **Chinese State** | RT (proxy; Xinhua RSS dead) | China |
+| **Russian Independent** | Meduza | Russia-critical (exile press, Riga) |
+| **Chinese State** | Xinhua, CGTN | China |
 | **Neutral Wire** | Al Jazeera, The Hindu | Qatar, India |
-| **Middle Eastern** | Al Jazeera | Arab world, Iran, Turkey |
-| **Latin American** | The Hindu (proxy) | Brazil, Mexico, Argentina, Venezuela |
-| **African** | Al Jazeera | Sub-Saharan & North Africa |
-| **South Asian** | The Hindu | India, Pakistan, Bangladesh |
-| **East Asian** | The Hindu (proxy) | Japan, Korea, Southeast Asia |
+| **Middle Eastern** | Anadolu Agency, Tehran Times | Turkey, Iran, Arab world |
+| **Latin American** | TeleSUR English | Venezuela & Latin America |
+| **African** | Daily Trust, The East African | Nigeria, East Africa |
+| **South Asian** | Dawn | Pakistan, South Asia |
+| **East Asian** | Asia Times, NTV English | Hong Kong/Singapore, Japan |
+
+Notes:
+- The default geo-filter restricts the pipeline to Europe/Russia political and military topics. Articles about other regions are only retained when they directly involve Russia or European powers.
+- The seed dataset (`SEED_ARTICLES` in `ingestion.py`) is used for offline demos; its timestamps are anchored to "now" at ingest time so the demo always populates regardless of the real wall clock.
+
 
 ## API Endpoints
 

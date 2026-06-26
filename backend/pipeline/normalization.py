@@ -7,6 +7,7 @@ for downstream comparison and consensus.
 from __future__ import annotations
 
 import re
+from datetime import datetime
 
 from backend.models import (
     Claim,
@@ -89,11 +90,19 @@ def _normalize_with_map(value: str, norm_map: dict[str, str]) -> str | None:
     return None
 
 
-def normalize_claim(claim: Claim, ontology: dict[str, FieldOntology] | None = None) -> Claim:
+def normalize_claim(
+    claim: Claim,
+    ontology: dict[str, FieldOntology] | None = None,
+    anchor_date: str | None = None,
+) -> Claim:
     """Normalize a claim's arguments to canonical values.
     
     Converts surface forms to canonical identifiers, normalizes timestamps,
     locations, entities, and weapon types.
+
+    Args:
+        anchor_date: Optional ``YYYY-MM-DD`` string used to anchor extracted
+            time-of-day references. Falls back to today's date if not given.
     """
     text = claim.claim_text_original
     normalized_text = text
@@ -158,9 +167,21 @@ def normalize_claim(claim: Claim, ontology: dict[str, FieldOntology] | None = No
         text, re.IGNORECASE
     )
     if time_match:
+        # Anchor the extracted time-of-day to the article date when available;
+        # otherwise fall back to today's date.
+        anchor = anchor_date or datetime.now().strftime("%Y-%m-%d")
+        hour = int(time_match.group(1))
+        minute = time_match.group(2)
+        ampm = time_match.group(3)
+        if ampm:
+            ampm = ampm.lower()
+            if ampm == "pm" and hour != 12:
+                hour += 12
+            elif ampm == "am" and hour == 12:
+                hour = 0
         claim.arguments["time"] = ClaimArgument(
-            value=time_match.group(0),
-            normalized=f"2026-06-05T{time_match.group(1).zfill(2)}:{time_match.group(2)}:00+03:00",
+            value=time_match.group(0).strip(),
+            normalized=f"{anchor}T{str(hour).zfill(2)}:{minute}:00",
         )
 
     # --- Normalize claim text ---
@@ -178,14 +199,21 @@ def normalize_claim(claim: Claim, ontology: dict[str, FieldOntology] | None = No
 def normalize_claims_batch(
     claims: list[Claim],
     ontology: dict[str, FieldOntology] | None = None,
+    anchor_date: str | None = None,
 ) -> list[Claim]:
     """Normalize a batch of claims."""
-    return [normalize_claim(c, ontology) for c in claims]
+    return [normalize_claim(c, ontology, anchor_date=anchor_date) for c in claims]
 
 
 def extract_candidate_claim_set(article_id: str) -> list[Claim]:
     """Get all claims for an article and normalize them."""
+    from backend.models import articles_store
+
     article_claims = [
         c for c in claims_store.values() if c.source_article_id == article_id
     ]
-    return normalize_claims_batch(article_claims)
+    anchor = None
+    article = articles_store.get(article_id)
+    if article and article.published_at:
+        anchor = article.published_at.strftime("%Y-%m-%d")
+    return normalize_claims_batch(article_claims, anchor_date=anchor)

@@ -475,20 +475,142 @@ def translate_text(text: str, source_lang: str) -> str:
     return f"[Translated from {source_lang}] {text}"
 
 
+# Propaganda-detection lexicon. Lowercased; matched as substrings against the
+# lowercased sentence text. Grouped so the cross-pool analysis can later cite
+# which lexicon a flag came from.
+PROPAGANDA_LEXICON: dict[str, list[str]] = {
+    "loaded_language": [
+        # Generic emotive / dehumanizing terms
+        "terror", "terrorist", "aggressor", "fascist", "nazi", "neo-nazi",
+        "liberation", "liberated", "puppet", "regime", "junta",
+        "genocide", "ethnic cleansing", "crusade", "barbaric", "savage",
+        "extermination", "annihilation", "crush", "destroy",
+        "heroic", "martyr", "martyrdom",
+        # Russian-state framing (Latin + Cyrillic)
+        "special military operation", "special operation",
+        "denazification", "demilitarization",
+        "kyiv regime", "kiev regime", "kyiv junta",
+        "zio", "russophobic", "russophobia",
+        "western-backed", "washington-backed",
+        "nazifier", "bandera",
+        "киевский режим", "киевской хунтой", "хунта",
+        # Russian has six noun cases; endings vary, so we match on the
+        # invariant leading stem of each key word independently. Matching the
+        # three stems together (in any order) catches "специальная военная
+        # операция" and all its grammatical case variants.
+        "спецопераци", "специальн", "военн операци", "денацификац",
+        "демилитаризац",
+        "нацист", "нацистов", "бандеровц", "русофоб",
+        # The СВО / SVO abbreviation, the Kremlin's shorthand for the invasion.
+        # Surrounded by spaces to avoid colliding with unrelated Cyrillic text.
+        " сво ",
+        # Western / Ukrainian framing of Russia
+        "war criminal", "war criminals", "butcher",
+        "putin loyalist", "kremlin stooge", "kremlin propagandist",
+        "orcs", "ruscism", "racism", "terror state", "terrorist state",
+        # Chinese-state framing
+        "western hegemony", "containment", "smear campaign",
+        "separatist", "splittist", "anti-china forces",
+    ],
+    "us_vs_them": [
+        # Explicit in-group / out-group phrasings
+        "us vs them", "us and them",
+        "the free world", "axis of evil", "empire of evil",
+        "coalition of the willing", "civilized world",
+        "barbaric enemy", "mortal enemy", "sworn enemy",
+        "our values", "their aggression",
+        # Russian-state narrative us-vs-them
+        "collective west", "anglo-saxons", "англо-сакс",
+        "western elites", "western curators",
+        # Dehumanization
+        "subhuman", "cockroaches", "vermin", "orcs",
+    ],
+    "certainty_without_evidence": [
+        # Absolute quantifiers used to assert without backing
+        "always ", "never ", "everyone knows", "everybody knows",
+        "it is obvious", "it's obvious", "clearly", "without a doubt",
+        "undeniable", "irrefutable", "definitely", "absolutely",
+        "всем известно", "очевидно", "безусловно", "несомненно",
+    ],
+    "whataboutism": [
+        "what about", "whataboutism",
+        "but america", "but the us", "but washington",
+        "and you are lynching negroes", "а у вас негров линчуют",
+    ],
+}
+
+
+def _detect_propaganda_signals(sentence_lower: str) -> list[str]:
+    """Return the propaganda flag IDs triggered by *sentence_lower*.
+
+    *sentence_lower* must already be lowercased by the caller.
+    """
+    signals: list[str] = []
+    for flag_id, terms in PROPAGANDA_LEXICON.items():
+        for term in terms:
+            # Wrap latin/word terms in word boundaries when possible so that
+            # 'crush' does not match 'crushing debt' spuriously, but skip
+            # boundaries for multi-word or non-ascii phrases.
+            if " " in term or not term[0].isascii():
+                if term in sentence_lower:
+                    signals.append(flag_id)
+                    break
+            else:
+                if re.search(rf"\b{re.escape(term)}\b", sentence_lower):
+                    signals.append(flag_id)
+                    break
+    return signals
+
+
+def _is_non_claim_sentence(sentence: str) -> bool:
+    """Heuristic: should this sentence be skipped entirely as a non-claim?
+
+    Catches rhetorical questions and reader-facing questions that do not
+    assert anything. Length filtering is handled separately by the caller.
+    """
+    stripped = sentence.strip()
+    # Questions are not assertions
+    if stripped.endswith("?"):
+        return True
+    # Direct quotes of a single speaker with no framing are still useful
+    # (they often carry attribution), so we keep them.
+    return False
+
+
 def _extract_claims_from_article(article: Article) -> list[Claim]:
-    """Simple rule-based claim extraction from article text.
-    
-    In production, this would use an LLM with strict schemas. For MVP,
-    we use keyword and pattern matching to demonstrate the concept.
+    """Rule-based claim extraction from article text.
+
+    Splits into sentences, drops obvious non-claims (questions, very short
+    fragments), then classifies each remaining sentence into one of the four
+    claim buckets using attribution/hedging/framing cues. Also stamps
+    evidence indicators and propaganda flags.
     """
     claims_list: list[Claim] = []
     text = article.full_text
     sentences = re.split(r'(?<=[.!?])\s+', text)
 
-    for i, sentence in enumerate(sentences):
+    # Hedge / speculation vocabulary → INFERENCE bucket
+    hedge_words = {
+        "may", "might", "could", "likely", "possibly", "perhaps", "unclear",
+        "appears", "seems", "allegedly", "reportedly", "presumably",
+        "purportedly", "suspected", "believed to",
+    }
+    # Editorial / framing vocabulary → OPINIONATED_FRAMING bucket
+    framing_words = {
+        "escalating", "escalation", "fog of war", "pattern of",
+        "raises questions", "raises the question", "shows the difficulty",
+        "fits a pattern", "highlights the", "underscores", "signals",
+        "marks a turning point", "represents a shift",
+    }
+
+    for sentence in sentences:
         sentence = sentence.strip()
         if not sentence or len(sentence) < 20:
             continue
+        if _is_non_claim_sentence(sentence):
+            continue
+
+        sentence_lower = sentence.lower()
 
         claim = Claim(
             source_article_id=article.article_id,
@@ -503,7 +625,7 @@ def _extract_claims_from_article(article: Article) -> list[Claim]:
         # Detect attribution markers
         attribution_phrases = [
             r"according to", r"said\b", r"stated\b", r"confirmed\b",
-            r"reported\b", r"attributed\b", r"according\s+to",
+            r"reported\b", r"attributed\b", r"announced\b", r"noted\b",
         ]
         attribution_match = None
         for phrase in attribution_phrases:
@@ -512,43 +634,55 @@ def _extract_claims_from_article(article: Article) -> list[Claim]:
                 attribution_match = m.group(0)
                 break
 
-        if attribution_match:
+        # --- Bucket classification --------------------------------------
+        # Order matters: framing > attribution > inference > fact. A sentence
+        # can be both attributed and loaded; framing is the stronger signal
+        # because it tells the user "treat with care" regardless of source.
+        words = set(re.findall(r"\b[\w']+\b", sentence_lower))
+
+        if framing_words & words or any(w in sentence_lower for w in framing_words):
+            claim.bucket = ClaimBucket.OPINIONATED_FRAMING
+        elif attribution_match:
             claim.bucket = ClaimBucket.ATTRIBUTED_STATEMENT
             claim.attribution.status = "on_record"
             claim.attribution.phrase = attribution_match
-            # Extract the speaker (simple heuristic)
             speaker_match = re.search(
-                r"(?:according to\s+)?(\w+\s+\w+)(?:\s+(?:said|stated|confirmed|reported))?",
+                r"(?:according to\s+)?(\w+\s+\w+)(?:\s+(?:said|stated|confirmed|reported|announced))?",
                 sentence, re.IGNORECASE
             )
             if speaker_match:
                 claim.attribution.speaker = speaker_match.group(1)
-        elif any(word in sentence.lower() for word in ["may", "might", "could", "likely", "possibly", "unclear"]):
+        elif hedge_words & words:
             claim.bucket = ClaimBucket.INFERENCE
-        elif any(word in sentence.lower() for word in ["escalating", "fog of war", "pattern of"]):
-            claim.bucket = ClaimBucket.OPINIONATED_FRAMING
         else:
-            claim.bucket = ClaimBucket.VERIFIED_FACT
+            # Default is now INFERENCE (uncorroborated assertion) rather than
+            # VERIFIED_FACT — a sentence is only a verified fact once the
+            # consensus engine has cross-pool corroboration. This avoids
+            # inflating the count of supposedly high-confidence claims.
+            claim.bucket = ClaimBucket.INFERENCE
 
-        # Check for evidence indicators
-        claim.evidence.quote = '"' in sentence or "said" in sentence.lower()
+        # --- Evidence indicators ----------------------------------------
+        claim.evidence.quote = '"' in sentence or "said" in sentence_lower
         claim.evidence.official_statement = any(
-            w in sentence.lower() for w in ["official", "ministry", "defense ministry", "regional"]
+            w in sentence_lower for w in [
+                "official", "ministry", "defense ministry", "regional",
+                "government", "spokesperson", "spokesman", "spokeswoman",
+                "minster", "department of", "press secretary", "ministry of",
+            ]
         )
-        claim.evidence.eyewitness = "eyewitness" in sentence.lower() or "witness" in sentence.lower()
-        claim.evidence.satellite_imagery = "satellite" in sentence.lower() or "imagery" in sentence.lower()
+        claim.evidence.eyewitness = any(
+            w in sentence_lower for w in ["eyewitness", "witness", "i saw", "we saw"]
+        )
+        claim.evidence.satellite_imagery = any(
+            w in sentence_lower for w in [
+                "satellite", "imagery", "satellite image", "satellite data",
+                "remote sensing", "nasa firms",
+            ]
+        )
         claim.evidence.timestamp_geolocation = bool(re.search(r'\d{1,2}:\d{2}', sentence))
 
-        # Detect propaganda signals
-        propaganda_signals = []
-        loaded_terms = ["terror", "aggressor", "fascist", "liberation", "puppet", "regime"]
-        if any(term in sentence.lower() for term in loaded_terms):
-            propaganda_signals.append("loaded_language")
-        if "always" in sentence.lower() or "never" in sentence.lower():
-            propaganda_signals.append("certainty_without_evidence")
-        if re.search(r'\b(them|they)\b.*\b(us|we)\b', sentence, re.IGNORECASE):
-            propaganda_signals.append("us_vs_them")
-        claim.propaganda_flags = propaganda_signals
+        # --- Propaganda signals -----------------------------------------
+        claim.propaganda_flags = _detect_propaganda_signals(sentence_lower)
 
         claims_list.append(claim)
 
@@ -570,9 +704,28 @@ def ingest_articles(seed: bool = True, days_back: int = 1) -> list[Article]:
         from backend.pipeline.normalization import normalize_claims_batch
 
         cutoff = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(days=days_back)
+
+        # Seed articles are authored with fixed past timestamps for reproducibility
+        # of the relative spacing between articles (which is what clustering needs).
+        # Shift the whole batch forward so the newest seed lands at "now"; this
+        # keeps the demo pipeline populated regardless of the real wall clock,
+        # while preserving the intra-batch time deltas the clusterer relies on.
+        seed_times = [s.get("published_at") for s in SEED_ARTICLES if s.get("published_at")]
+        offset = None
+        if seed_times:
+            newest_seed = max(seed_times)
+            now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+            offset = now_naive - newest_seed
+
         ingested = 0
         for seed_data in SEED_ARTICLES:
-            # Skip articles older than the cutoff
+            # Shift published_at forward so the newest seed article is "now".
+            pub = seed_data.get("published_at")
+            if pub and offset is not None:
+                seed_data = {**seed_data, "published_at": pub + offset}
+
+            # Skip articles older than the cutoff (after shifting, all seeds
+            # should fall inside the window, but guard anyway).
             pub = seed_data.get("published_at")
             if pub and pub < cutoff:
                 continue
@@ -583,7 +736,7 @@ def ingest_articles(seed: bool = True, days_back: int = 1) -> list[Article]:
             combined = (title + " " + full_text).lower()
             if not _has_europe_russia_geo(combined):
                 continue
-                
+
             article = Article(**seed_data)
             
             # Apply translation if needed
@@ -600,7 +753,11 @@ def ingest_articles(seed: bool = True, days_back: int = 1) -> list[Article]:
                 claims = _extract_claims_from_article(article)
 
             # Normalize claims immediately so arguments are populated
-            claims = normalize_claims_batch(claims)
+            anchor = (
+                article.published_at.strftime("%Y-%m-%d")
+                if article.published_at else None
+            )
+            claims = normalize_claims_batch(claims, anchor_date=anchor)
             article.claims = claims
             articles_store[article.article_id] = article
             for c in claims:
@@ -628,10 +785,10 @@ def fetch_article(article_id: str) -> Article | None:
 # Sources mapped to NewsAPI source IDs, country codes, and RSS feeds
 # Free tier: 100 req/day for NewsAPI. RSS feeds are unlimited.
 
-# Known working public RSS feeds (free, no API key needed)
-# Each feed URL should appear in exactly ONE pool as primary=True.
-# Other pools can reference the same source but must use primary=False
-# (they will be skipped during RSS fetching to avoid duplicates).
+# Known working public RSS feeds (free, no API key needed).
+# Each feed URL should appear in exactly ONE pool as primary=True so we fetch
+# each source only once. Other pools that legitimately want to track the same
+# outlet use primary=False (they will be skipped during RSS fetching).
 RSS_FEEDS: dict[str, list[dict]] = {
     # Western mainstream — US/UK/European establishment media
     "western_mainstream": [
@@ -643,38 +800,51 @@ RSS_FEEDS: dict[str, list[dict]] = {
         {"url": "https://www.rt.com/rss/", "source": "RT", "primary": True},
         {"url": "https://tass.com/rss/v2.xml", "source": "TASS", "primary": True},
     ],
-    # Chinese state — Beijing-aligned (Xinhua RSS is dead)
+    # Chinese state — Beijing-aligned
     "chinese_state": [
-        {"url": "https://www.rt.com/rss/", "source": "RT", "primary": False},
+        {"url": "https://english.news.cn/rss/latestnews.xml", "source": "Xinhua", "primary": True},
+        {"url": "https://www.cgtn.com/subscribe/rss/section/world.xml", "source": "CGTN", "primary": True},
     ],
     # Neutral wire services — global coverage, non-aligned
     "neutral_wire": [
         {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "primary": True},
         {"url": "https://www.thehindu.com/news/international/feeder/default.rss", "source": "The Hindu", "primary": True},
     ],
-    # Russian independent — critical of Kremlin
+    # Russian independent — critical of Kremlin (in exile / foreign-funded)
     "russian_independent": [
-        {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "primary": False},
+        # Meduza is an independent Latvian-based Russian-language outlet.
+        {"url": "https://meduza.io/rss/podcasts/English.xml", "source": "Meduza", "primary": True},
     ],
     # Middle Eastern — Arab/Persian/Turkish perspectives
     "middle_eastern": [
-        {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "primary": False},
+        # Al Jazeera already primary in neutral_wire; Anadolu (Turkey) is a
+        # genuinely Middle-Eastern state wire that does not duplicate AJ.
+        {"url": "https://www.aa.com.tr/rss/default?cat=guncel&tag=en", "source": "Anadolu Agency", "primary": True},
+        {"url": "https://www.tehrantimes.com/rss", "source": "Tehran Times", "primary": True},
     ],
-    # Latin American — South/Central America
+    # Latin American — South/Central America perspectives
     "latin_american": [
-        {"url": "https://www.thehindu.com/news/international/feeder/default.rss", "source": "The Hindu", "primary": False},
+        # TeleSUR is a multistate leftist Latin American network (Caracas HQ).
+        {"url": "https://www.telesurenglish.net/rss", "source": "TeleSUR English", "primary": True},
     ],
     # African — continental perspectives
     "african": [
-        {"url": "https://www.aljazeera.com/xml/rss/all.xml", "source": "Al Jazeera", "primary": False},
+        # Daily Trust (Nigeria) and The East African (Kenya) cover the
+        # continent from genuinely African editorial desks.
+        {"url": "https://www.dailytrust.com.ng/feed/", "source": "Daily Trust", "primary": True},
+        {"url": "https://www.theeastafrican.co.ke/tea/rss/rss.xml", "source": "The East African", "primary": True},
     ],
     # South Asian — India, Pakistan, Bangladesh, Sri Lanka
     "south_asian": [
         {"url": "https://www.thehindu.com/news/international/feeder/default.rss", "source": "The Hindu", "primary": False},
+        {"url": "https://www.dawn.com/feed", "source": "Dawn", "primary": True},
     ],
     # East Asian — Japan, Korea, Southeast Asia
     "east_asian": [
-        {"url": "https://www.thehindu.com/news/international/feeder/default.rss", "source": "The Hindu", "primary": False},
+        # Asia Times (Hong Kong/Singapore) covers the region with a
+        # distinctly East-Asian editorial lens; NTV English is Japanese.
+        {"url": "https://asiatimes.com/feed/", "source": "Asia Times", "primary": True},
+        {"url": "https://www.ntv.co.jp/englishnews/index.xml", "source": "NTV English", "primary": True},
     ],
 }
 
@@ -726,6 +896,22 @@ NEWSAPI_SOURCES: dict[str, list[dict]] = {
         {"country": "ph", "source": None},
         {"country": "th", "source": None},
     ],
+}
+
+
+# Default ISO-3166 country codes per source pool. Used when an RSS/NewsAPI
+# record doesn't itself expose a country. Covers all 10 pools.
+_POOL_DEFAULT_COUNTRY: dict[str, str] = {
+    "western_mainstream": "GB",
+    "russian_state": "RU",
+    "russian_independent": "LV",   # Meduza is headquartered in Riga
+    "chinese_state": "CN",
+    "neutral_wire": "QA",          # Al Jazeera primary
+    "middle_eastern": "TR",
+    "latin_american": "VE",        # TeleSUR HQ
+    "african": "NG",
+    "south_asian": "IN",
+    "east_asian": "HK",
 }
 
 
@@ -804,16 +990,17 @@ def _fetch_rss_feeds(days_back: int = 1) -> list[Article]:
                         published_at=pub_dt,
                         source_name=feed["source"],
                         source_pool=pool,
-                        source_country={"western_mainstream": "GB", "russian_state": "RU", "chinese_state": "CN", "neutral_wire": "CH"}.get(pool_name, "unknown"),
+                        source_country=_POOL_DEFAULT_COUNTRY.get(pool_name, "unknown"),
                         full_text=description,
                         topic_tags=_infer_tags(title + " " + description),
                     )
                     
                     from backend.pipeline.normalization import normalize_claims_batch
                     claims = _extract_claims_from_article(article)
-                    claims = normalize_claims_batch(claims)
+                    anchor = pub_dt.strftime("%Y-%m-%d") if pub_dt else None
+                    claims = normalize_claims_batch(claims, anchor_date=anchor)
                     article.claims = claims
-                    
+
                     articles_store[article.article_id] = article
                     for c in claims:
                         claims_store[c.claim_id] = c
@@ -900,8 +1087,7 @@ def _fetch_from_newsapi(days_back: int = 1) -> list[Article]:
                         
                         source_name = item.get("source", {}).get("name", config.get("source", "Unknown"))
                         # Map pool to default country for source_country field
-                        country_map = {"western_mainstream": "US", "russian_state": "RU", "chinese_state": "CN", "neutral_wire": "CH"}
-                        country = config.get("country") or country_map.get(pool_name, "unknown")
+                        country = config.get("country") or _POOL_DEFAULT_COUNTRY.get(pool_name, "unknown")
                         
                         article = Article(
                             canonical_url=item.get("url", ""),
@@ -917,7 +1103,8 @@ def _fetch_from_newsapi(days_back: int = 1) -> list[Article]:
                         
                         from backend.pipeline.normalization import normalize_claims_batch
                         claims = _extract_claims_from_article(article)
-                        claims = normalize_claims_batch(claims)
+                        anchor = pub_dt.strftime("%Y-%m-%d") if pub_dt else None
+                        claims = normalize_claims_batch(claims, anchor_date=anchor)
                         article.claims = claims
                         
                         articles_store[article.article_id] = article

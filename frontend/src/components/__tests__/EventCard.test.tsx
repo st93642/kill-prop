@@ -15,33 +15,27 @@ describe('EventCard', () => {
     expect(screen.getByText(/Strike involving drone/i)).toBeInTheDocument();
   });
 
-  it('renders confidence badge', () => {
+  it('renders plain-language reliability badge', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.getByText('confirmed')).toBeInTheDocument();
+    expect(screen.getByText('Confirmed')).toBeInTheDocument();
   });
 
-  it('renders corroborating sources count', () => {
+  it('renders sources and regions count in plain language', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.getByText(/3 sources · 3 pools/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 sources · 3 regions/i)).toBeInTheDocument();
   });
 
-  it('renders pool count in compact format', () => {
-    render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.getByText(/3 sources · 3 pools/i)).toBeInTheDocument();
-  });
-
-  it('shows dispute warning when dispute_count > 0', () => {
+  it('shows conflict warning when dispute_count > 0', () => {
     render(<EventCard event={mockEventWithDisputes} onClick={vi.fn()} />);
-    expect(screen.getByText(/2 disputed/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 conflicting points/i)).toBeInTheDocument();
   });
 
-  it('does not show dispute warning when no disputes', () => {
+  it('does not show conflict warning when no disputes', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    expect(screen.queryByText(/disputed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/conflicting points/i)).not.toBeInTheDocument();
   });
 
   it('does not show reviewed badge on card', () => {
-    // Reviewed badge was removed from compact card view
     render(<EventCard event={mockEventWithDisputes} onClick={vi.fn()} />);
     expect(screen.queryByText(/Reviewed/i)).not.toBeInTheDocument();
   });
@@ -60,15 +54,15 @@ describe('EventCard', () => {
     expect(handleClick).toHaveBeenCalledOnce();
   });
 
-  it('applies confirmed badge class for confirmed confidence', () => {
+  it('applies confirmed badge class for confirmed reliability', () => {
     render(<EventCard event={mockEvent} onClick={vi.fn()} />);
-    const badge = screen.getByText('confirmed');
+    const badge = screen.getByText('Confirmed');
     expect(badge).toHaveClass('badge-green');
   });
 
-  it('applies disputed badge class for disputed confidence', () => {
+  it('applies disputed badge class for conflicting reports', () => {
     render(<EventCard event={mockEventWithDisputes} onClick={vi.fn()} />);
-    const badge = screen.getByText('disputed');
+    const badge = screen.getByText('Conflicting reports');
     expect(badge).toHaveClass('badge-yellow');
   });
 });

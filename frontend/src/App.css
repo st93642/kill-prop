@@ -2,6 +2,7 @@
   --bg-primary: #0f1117;
   --bg-secondary: #1a1d27;
   --bg-card: #222639;
+  --bg-surface: #1a1d27;
   --bg-hover: #2a2f45;
   --text-primary: #e8eaed;
   --text-secondary: #9aa0b4;
@@ -331,6 +332,11 @@ body {
 .pool-dot.russian_independent { background: var(--accent-purple); }
 .pool-dot.chinese_state { background: var(--accent-orange); }
 .pool-dot.neutral_wire { background: var(--accent-green); }
+.pool-dot.middle_eastern { background: var(--accent-yellow); }
+.pool-dot.latin_american { background: #22d3ee; }
+.pool-dot.african { background: #f97316; }
+.pool-dot.south_asian { background: #818cf8; }
+.pool-dot.east_asian { background: #fb7185; }
 
 /* Filters */
 .filters-bar {

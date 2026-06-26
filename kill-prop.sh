@@ -59,25 +59,24 @@ if [ ! -f "$VENV/bin/activate" ]; then
 fi
 
 info "Installing backend Python dependencies …"
-cmd "core packages (fastapi, uvicorn, pydantic, huggingface_hub …)"
+cmd "core packages (fastapi, uvicorn, pydantic …)"
 "$VENV/bin/pip" install --quiet --upgrade pip 2>/dev/null || true
-"$VENV/bin/pip" install --quiet \
-    "fastapi>=0.110.0" \
-    "uvicorn[standard]>=0.29.0" \
-    "pydantic>=2.0.0" \
-    "pydantic-settings>=2.0.0" \
-    "huggingface_hub" 2>&1 | tail -1 || fail "Failed to install core backend packages."
+"$VENV/bin/pip" install --quiet -r "$ROOT/backend/requirements.txt" 2>&1 | tail -1 \
+    || fail "Failed to install core backend packages."
 
 # ── llama-cpp-python (optional — for LLM extraction) ─────────────────
+# Uses pre-built wheels from the llama.cpp wheel index so there is NO C++
+# compilation step and no need for a build toolchain. Install is ~30s.
 LLM_INSTALL=${KILLPROP_INSTALL_LLM:-no}
 if [ "$LLM_INSTALL" = "yes" ]; then
-    info "Installing optional LLM dependency (llama-cpp-python) …"
-    warn "This takes several minutes as it compiles from source."
-    warn "Set KILLPROP_INSTALL_LLM=yes to include it, or omit to skip."
-    if "$VENV/bin/pip" install "llama-cpp-python" 2>&1 | tail -3; then
+    info "Installing optional LLM dependency (pre-built llama-cpp-python wheel) …"
+    LLM_WHEEL_INDEX="https://abetlen.github.io/llama-cpp-python/whl/cpu"
+    if "$VENV/bin/pip" install --only-binary :all: \
+            --extra-index-url "$LLM_WHEEL_INDEX" \
+            -r "$ROOT/backend/requirements-llm.txt" 2>&1 | tail -3; then
         info "llama-cpp-python installed — LLM extraction available."
     else
-        warn "llama-cpp-python installation failed."
+        warn "Pre-built wheel install failed (offline or unsupported platform?)."
         warn "The app will work without it — only rule-based extraction will be used."
     fi
 else

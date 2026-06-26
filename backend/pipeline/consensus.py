@@ -25,15 +25,13 @@ from backend.models import (
     ScoredValue,
     SourceClaimEntry,
     SourcePool,
-    source_reliability_priors,
+    lookup_source_reliability,
 )
 
 
 def _source_weight(source_name: str) -> float:
     """Get source reliability weight."""
-    # Normalize source name for lookup
-    key = source_name.lower().replace(" ", "_")
-    return source_reliability_priors.get(key, 0.5)
+    return lookup_source_reliability(source_name)
 
 
 def _evidence_weight(claim: Claim) -> float:
@@ -365,6 +363,18 @@ def resolve_event(event: Event) -> Event:
         summary_parts.append(f"at {tgt.replace('_', ' ')}")
     if loc:
         summary_parts.append(f"in {loc.replace('_', ' ')}")
+
+    # When no fact fields resolved, fall back to the most substantive claim
+    # so the summary is useful instead of the generic "Event reported".
+    if not summary_parts and event_claims:
+        sorted_claims = sorted(
+            event_claims,
+            key=lambda c: (len(c.claim_text_original or ""), c.confidence),
+            reverse=True,
+        )
+        fallback = sorted_claims[0].claim_text_original or ""
+        if fallback:
+            summary_parts.append(fallback[:200])
 
     pool_spread = len({c.source_pool for c in event_claims})
 

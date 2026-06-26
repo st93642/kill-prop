@@ -233,22 +233,129 @@ events_store: dict[str, Event] = {}
 source_reliability_priors: dict[str, float] = {
     "reuters": 0.90,
     "associated_press": 0.90,
+    "ap": 0.90,
     "bbc": 0.80,
+    "bbc_news": 0.80,
+    "bbc_news_world": 0.80,
+    "new_york_times": 0.80,
+    "nytimes": 0.80,
+    "the_new_york_times": 0.80,
+    "france_24": 0.80,
+    "guardian": 0.80,
+    "the_guardian": 0.80,
+    "washington_post": 0.80,
+    "washpost": 0.80,
+    "al_jazeera": 0.70,
+    "al_jazeera_english": 0.70,
+    "the_hindu": 0.75,
+    "interfax": 0.60,
+    "cnn": 0.70,
+    "fox_news": 0.55,
+    "fox": 0.55,
+    # Russian outlets
     "tass": 0.50,
     "ria_novosti": 0.45,
+    "ria": 0.45,
+    "rt": 0.35,
+    "russia_today": 0.35,
+    "rt_com": 0.35,
+    # Russian independent / exile press
     "meduza": 0.75,
     "novaya_gazeta": 0.80,
-    "russia_today": 0.35,
-    "washpost": 0.80,
-    "nytimes": 0.80,
-    "fox_news": 0.55,
-    "cnn": 0.70,
-    "interfax": 0.60,
-    "guardian": 0.80,
+    "the_moscow_times": 0.75,
+    "russian_independent": 0.75,
+    # Chinese state outlets
     "xinhua": 0.40,
+    "people's_daily": 0.35,
     "peoples_daily": 0.35,
     "global_times": 0.30,
+    "china_daily": 0.40,
+    # Wire / regional
+    "wire_service": 0.65,
+    "afp": 0.85,
+    "dpa": 0.80,
+    "anhadolu_agency": 0.65,
+    "daily_sabah": 0.60,
+    "tehran_times": 0.45,
+    "press_tv": 0.40,
+    "telesur_english": 0.50,
+    "telesur": 0.50,
+    "african_news_agency": 0.60,
+    "south_asian_monitor": 0.65,
+    "asia_pacific_report": 0.65,
+    "middle_east_monitor": 0.60,
+    "haaretz": 0.75,
+    "times_of_india": 0.70,
 }
+
+# Aliases that map surface-form source names to a key in source_reliability_priors.
+# Lookup is case-insensitive and ignores spaces/punctuation, so this only needs
+# to cover names whose normalized form does not directly equal a priors key.
+_SOURCE_RELIABILITY_ALIASES: dict[str, str] = {
+    "newyorktimes": "new_york_times",
+    "nytimes": "new_york_times",
+    "bbcnews": "bbc",
+    "washingtonpost": "washington_post",
+    "thehindu": "the_hindu",
+    "aljazeera": "al_jazeera",
+    "aljazeeraenglish": "al_jazeera",
+    "russiatoday": "rt",
+    "rtcom": "rt",
+    "peoplesdaily": "peoples_daily",
+    "globaltimes": "global_times",
+    "chinadaily": "china_daily",
+    "foxnews": "fox_news",
+    "moscowtimes": "the_moscow_times",
+    "africannewsagency": "african_news_agency",
+    "southasianmonitor": "south_asian_monitor",
+    "asiapacificreport": "asia_pacific_report",
+    "middleeastmonitor": "middle_east_monitor",
+    "timesofindia": "times_of_india",
+    "telesurenglish": "telesur",
+    "associatedpress": "associated_press",
+}
+
+
+def _normalize_source_key(source_name: str) -> str:
+    """Collapse a source name to a stable lookup key: lowercase, no spaces,
+    no punctuation."""
+    out = []
+    for ch in source_name.lower():
+        if ch.isalnum():
+            out.append(ch)
+    return "".join(out)
+
+
+def lookup_source_reliability(source_name: str) -> float:
+    """Resolve a source's reliability prior by name.
+
+    Tries direct lookup, alias lookup, and finally a substring match against
+    known priors keys (so 'BBC News World' still finds 'bbc'). Returns 0.5
+    when nothing matches.
+    """
+    if not source_name:
+        return 0.5
+
+    compact = _normalize_source_key(source_name)
+
+    # 1. Alias table (covers the common display-name variants)
+    if compact in _SOURCE_RELIABILITY_ALIASES:
+        return source_reliability_priors.get(
+            _SOURCE_RELIABILITY_ALIASES[compact], 0.5
+        )
+
+    # 2. Direct compact-key match
+    for key, val in source_reliability_priors.items():
+        if _normalize_source_key(key) == compact:
+            return val
+
+    # 3. Substring match — handles 'BBC News', 'New York Times', etc.
+    for key, val in source_reliability_priors.items():
+        norm_key = _normalize_source_key(key)
+        if norm_key and (norm_key in compact or compact in norm_key):
+            return val
+
+    return 0.5
 
 # Default field ontology for the abstraction ladder
 DEFAULT_ONTOLOGY: dict[str, FieldOntology] = {

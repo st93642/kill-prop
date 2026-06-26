@@ -10,6 +10,7 @@ from backend.models import (
     Claim,
     ClaimBucket,
     Event,
+    lookup_source_reliability,
     source_reliability_priors,
 )
 
@@ -51,8 +52,7 @@ def score_claim(claim: Claim, all_related_claims: list[Claim] | None = None) -> 
     evidence_score = min(evidence_score, 1.0) * 0.25
 
     # 3. Source reliability prior (0.15)
-    source_key = claim.source_name.lower().replace(" ", "_")
-    reliability = source_reliability_priors.get(source_key, 0.5) * 0.15
+    reliability = lookup_source_reliability(claim.source_name) * 0.15
 
     # 4. Specificity (0.15)
     arg_count = len([a for a in claim.arguments.values() if a.normalized])
@@ -114,8 +114,7 @@ def score_claim_field(
     attribution_score = 0.20 if claim.attribution.status == "on_record" else 0.05
 
     # Source track record
-    source_key = claim.source_name.lower().replace(" ", "_")
-    track_record = source_reliability_priors.get(source_key, 0.5) * 0.15
+    track_record = lookup_source_reliability(claim.source_name) * 0.15
 
     # Freshness (higher for more recent)
     freshness = 0.10  # Max score for MVP

@@ -1,138 +1,117 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import EventDetailView from '../EventDetail';
 import { mockEventDetail, mockEventDetailWithDisputes } from '../../test/fixtures';
 
+// The component fetches cross-pool analysis on mount; stub the network call.
 vi.mock('../../api/client', () => ({
-  updateReview: vi.fn(),
-  approveEvent: vi.fn(),
+  getCrossPoolAnalysis: vi.fn().mockResolvedValue({
+    event_id: 'e_test001',
+    title: 'Drone strike hits fuel depot near Dnipro',
+    pool_count: 2,
+    pools_represented: ['western_mainstream', 'neutral_wire'],
+    fields_analysis: [],
+    llm_comparison: null,
+    dispute_layer: { contradictions: [] },
+  }),
 }));
 
 import * as api from '../../api/client';
-const mockUpdateReview = api.updateReview as ReturnType<typeof vi.fn>;
-const mockApproveEvent = api.approveEvent as ReturnType<typeof vi.fn>;
+const mockGetCrossPool = api.getCrossPoolAnalysis as ReturnType<typeof vi.fn>;
 
 describe('EventDetailView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUpdateReview.mockResolvedValue({
-      message: 'Review saved',
+    mockGetCrossPool.mockResolvedValue({
       event_id: 'e_test001',
-      human_reviewed: true,
-    });
-    mockApproveEvent.mockResolvedValue({
-      message: 'Event approved',
-      event_id: 'e_test001',
+      title: 'Drone strike hits fuel depot near Dnipro',
+      pool_count: 2,
+      pools_represented: ['western_mainstream', 'neutral_wire'],
+      fields_analysis: [],
+      llm_comparison: null,
+      dispute_layer: { contradictions: [] },
     });
   });
 
   it('renders event title', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
     expect(screen.getByText('Drone strike hits fuel depot near Dnipro')).toBeInTheDocument();
   });
 
-  it('renders confidence badge', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText('confirmed')).toBeInTheDocument();
+  it('renders plain-language reliability badge', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
+    expect(screen.getByText('Confirmed')).toBeInTheDocument();
   });
 
-  it('renders Cross-Pool Claim Analysis header', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText('Cross-Pool Claim Analysis')).toBeInTheDocument();
+  it('renders "How different sources report this" section', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
+    expect(screen.getByText(/how different sources report this/i)).toBeInTheDocument();
   });
 
-  it('renders Source Articles section', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText('Source Articles')).toBeInTheDocument();
+  it('renders "Full coverage" section', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
+    expect(screen.getByText('Full coverage')).toBeInTheDocument();
   });
 
-  it('renders pool labels in cross-pool analysis', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText('Western')).toBeInTheDocument();
-    expect(screen.getByText('Wire')).toBeInTheDocument();
+  it('renders region labels in plain language', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
+    expect(screen.getAllByText('Western media').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Wire services').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders claim text in cross-pool analysis', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    // The cross-pool analysis shows claim text — may appear multiple times (pool breakdown + cross-pool)
+  it('renders claim text', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
     const elements = screen.getAllByText(/A drone struck a fuel depot near the Dnipro river/i);
     expect(elements.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows AGREED badge for cross-pool claims', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    // The mock has 2 claims from different pools that should be detected as agreed
-    const agreedBadges = screen.queryAllByText('AGREED');
-    expect(agreedBadges.length).toBeGreaterThanOrEqual(0);
+  it('renders plain claim-type labels (Fact / Quote)', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
+    expect(screen.getAllByText('Fact').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Quote').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('renders review panel with textarea', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByPlaceholderText(/add review notes/i)).toBeInTheDocument();
+  it('does NOT render the analyst review panel', () => {
+    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} />);
+    expect(screen.queryByPlaceholderText(/add review notes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/save notes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/approve/i)).not.toBeInTheDocument();
   });
 
-  it('Approve button is enabled', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/approve/i)).not.toBeDisabled();
-  });
-
-  it('Save Notes button is disabled when textarea is empty', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/save notes/i)).toBeDisabled();
-  });
-
-  it('Save Notes button is enabled when textarea has text', async () => {
-    const user = userEvent.setup();
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    await user.type(screen.getByPlaceholderText(/add review notes/i), 'Some notes');
-    expect(screen.getByText(/save notes/i)).not.toBeDisabled();
-  });
-
-  it('calls approveEvent and onUpdate when Approve is clicked', async () => {
-    const user = userEvent.setup();
-    const onUpdate = vi.fn();
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={onUpdate} />);
-    await user.click(screen.getByText(/approve/i));
-    await waitFor(() => {
-      expect(mockApproveEvent).toHaveBeenCalledWith('e_test001');
-      expect(onUpdate).toHaveBeenCalledWith('e_test001');
-    });
-  });
-
-  it('calls updateReview and onUpdate when Save Notes is clicked', async () => {
-    const user = userEvent.setup();
-    const onUpdate = vi.fn();
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={onUpdate} />);
-    await user.type(screen.getByPlaceholderText(/add review notes/i), 'Test note');
-    await user.click(screen.getByText(/save notes/i));
-    await waitFor(() => {
-      expect(mockUpdateReview).toHaveBeenCalledWith('e_test001', 'Test note');
-      expect(onUpdate).toHaveBeenCalledWith('e_test001');
-    });
-  });
-
-  it('shows "Reviewed" badge when human_reviewed is true', () => {
+  it('does NOT render the analyst "Reviewed" badge even when human_reviewed is true', () => {
     const reviewed = { ...mockEventDetail, human_reviewed: true };
-    render(<EventDetailView event={reviewed} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/✓ Reviewed/i)).toBeInTheDocument();
+    render(<EventDetailView event={reviewed} onBack={vi.fn()} />);
+    expect(screen.queryByText(/✓ Reviewed/i)).not.toBeInTheDocument();
   });
 
-  it('shows disputed warning when contradiction state is disputed_detail', () => {
-    render(<EventDetailView event={mockEventDetailWithDisputes} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    expect(screen.getByText(/⚠ Disputed/i)).toBeInTheDocument();
+  it('shows conflicting-reports warning when contradiction state is disputed_detail', () => {
+    render(<EventDetailView event={mockEventDetailWithDisputes} onBack={vi.fn()} />);
+    expect(screen.getByText(/⚠ Conflicting reports/i)).toBeInTheDocument();
   });
 
-  it('renders pool column headers', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    // Pool labels should appear in the pool-by-pool breakdown
-    expect(screen.getAllByText('Western').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Wire').length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('renders Propaganda & Framing Analysis when claims have flags', () => {
-    render(<EventDetailView event={mockEventDetail} onBack={vi.fn()} onUpdate={vi.fn()} />);
-    // The mock data may or may not have propaganda; just verify the component doesn't crash
-    expect(screen.getByText(/Cross-Pool Claim Analysis/i)).toBeInTheDocument();
+  it('renders Bias & loaded language section when claims have propaganda flags', async () => {
+    const withFlags: typeof mockEventDetail = {
+      ...mockEventDetail,
+      source_claims_layer: [
+        {
+          ...mockEventDetail.source_claims_layer[0],
+          propaganda_flags: ['loaded_language'],
+        },
+      ],
+    };
+    mockGetCrossPool.mockResolvedValue({
+      event_id: 'e_test001',
+      title: 'Drone strike hits fuel depot near Dnipro',
+      pool_count: 1,
+      pools_represented: ['western_mainstream'],
+      fields_analysis: [],
+      llm_comparison: null,
+      dispute_layer: { contradictions: [] },
+    });
+    render(<EventDetailView event={withFlags} onBack={vi.fn()} />);
+    await waitFor(() => {
+      expect(screen.getByText(/Bias & loaded language/i)).toBeInTheDocument();
+    });
+    expect(screen.getByText('Emotional language')).toBeInTheDocument();
   });
 });
